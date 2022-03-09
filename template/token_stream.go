@@ -14,7 +14,7 @@ type TokenStream struct {
 func (ts *TokenStream) String() string {
 	buf := &bytes.Buffer{}
 	for _, t := range ts.tokens {
-		buf.WriteString(t.GetValue())
+		buf.WriteString(t.Value())
 	}
 	return buf.String()
 }
@@ -27,7 +27,7 @@ func (ts *TokenStream) Next() *Token {
 	ts.current++
 	if ts.current >= len(ts.tokens) {
 		et := ts.tokens[ts.current-1]
-		panic(fmt.Sprintf("Unexpected end of template at line %d", et.GetLine()))
+		panic(fmt.Sprintf("Unexpected end of template at line %d", et.Line()))
 	}
 	return ts.tokens[ts.current-1]
 }
@@ -42,7 +42,7 @@ func (ts *TokenStream) Next() *Token {
 // func (ts *TokenStream) Expect(typ int, value interface{}, message string) *Token {
 // 	t := ts.tokens[ts.current]
 // 	if !t.Test(typ, value) {
-// 		line := t.GetLine()
+// 		line := t.Line()
 // 		val := t.GetValue()
 // 		if val != "" {
 // 			val = fmt.Sprintf(" of value \"%s\"", val)
@@ -66,7 +66,7 @@ func (ts *TokenStream) Next() *Token {
 func (ts *TokenStream) Peek(n int) *Token {
 	if ts.current+n >= len(ts.tokens) {
 		et := ts.tokens[ts.current+n-1]
-		panic(fmt.Sprintf("Unexpected end of template at line %d", et.GetLine()))
+		panic(fmt.Sprintf("Unexpected end of template at line %d", et.Line()))
 	}
 	return ts.tokens[ts.current+n]
 }
@@ -76,7 +76,7 @@ func (ts *TokenStream) Peek(n int) *Token {
 // }
 
 func (ts *TokenStream) IsEOF() bool {
-	return TYPE_EOF == ts.tokens[ts.current].GetType()
+	return TYPE_EOF == ts.tokens[ts.current].Type()
 }
 
 func (ts *TokenStream) GetCurrent() int {

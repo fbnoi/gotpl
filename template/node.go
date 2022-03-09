@@ -29,6 +29,9 @@ const (
 	NodeBlock                    // A block action
 	NodeEndBlock                 // An end block action
 	NodeImport                   // An import action
+	NodeDoc                      // An document node
+	NodeExtend                   // An extend action
+	NodeInclude                  // An include action
 )
 
 // NodeType identifies the type of a parse tree node.
@@ -70,6 +73,8 @@ type Node interface {
 	// CopyXxx methods that return *XxxNode.
 	Copy() Node
 	Position() Pos // byte position of start of node in full original input string
+	// It is unexported so all implementations of Node are in this package.
+	document() *Document
 	// writeTo writes the String output to the builder.
 	writeTo(*strings.Builder)
 }
@@ -77,6 +82,7 @@ type Node interface {
 type TextNode struct {
 	Pos
 	NodeType
+	doc  *Document
 	Text []byte
 }
 
@@ -85,7 +91,11 @@ func (t *TextNode) String() string {
 }
 
 func (t *TextNode) Copy() Node {
-	return &TextNode{Pos: t.Pos, NodeType: t.NodeType, Text: t.Text}
+	return &TextNode{Pos: t.Pos, NodeType: t.NodeType, Text: t.Text, doc: t.doc}
+}
+
+func (t *TextNode) document() *Document {
+	return t.doc
 }
 
 func (t *TextNode) writeTo(sb *strings.Builder) {
@@ -95,6 +105,7 @@ func (t *TextNode) writeTo(sb *strings.Builder) {
 type ValueNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 }
 
@@ -110,8 +121,13 @@ func (v *ValueNode) Copy() Node {
 	return &ValueNode{
 		Pos:      v.Pos,
 		NodeType: v.NodeType,
+		doc:      v.doc,
 		PipeNode: v.PipeNode.Copy().(*PipeNode),
 	}
+}
+
+func (v *ValueNode) document() *Document {
+	return v.doc
 }
 
 func (v *ValueNode) writeTo(sb *strings.Builder) {
@@ -121,6 +137,7 @@ func (v *ValueNode) writeTo(sb *strings.Builder) {
 type PipeNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	FnStack  []FuncInfo
 	ArgStack [][]ArgInfo
 }
@@ -133,9 +150,14 @@ func (p *PipeNode) Copy() Node {
 	return &PipeNode{
 		Pos:      p.Pos,
 		NodeType: p.NodeType,
+		doc:      p.doc,
 		FnStack:  p.FnStack,
 		ArgStack: p.ArgStack,
 	}
+}
+
+func (p *PipeNode) document() *Document {
+	return p.doc
 }
 
 func (p *PipeNode) writeTo(sb *strings.Builder) {
@@ -145,6 +167,7 @@ func (p *PipeNode) writeTo(sb *strings.Builder) {
 type IfNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 	Branchs  []Node
 }
@@ -164,6 +187,10 @@ func (i *IfNode) Copy() Node {
 	return &IfNode{Pos: i.Pos, NodeType: i.NodeType, PipeNode: i.PipeNode.Copy().(*PipeNode)}
 }
 
+func (i *IfNode) document() *Document {
+	return i.doc
+}
+
 func (i *IfNode) writeTo(sb *strings.Builder) {
 	sb.WriteString(i.String())
 }
@@ -171,6 +198,7 @@ func (i *IfNode) writeTo(sb *strings.Builder) {
 type ElseIfNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 	Branchs  []Node
 }
@@ -187,7 +215,11 @@ func (e *ElseIfNode) String() string {
 }
 
 func (e *ElseIfNode) Copy() Node {
-	return &IfNode{Pos: e.Pos, NodeType: e.NodeType, PipeNode: e.PipeNode.Copy().(*PipeNode)}
+	return &ElseIfNode{Pos: e.Pos, NodeType: e.NodeType, PipeNode: e.PipeNode.Copy().(*PipeNode), doc: e.doc}
+}
+
+func (e *ElseIfNode) document() *Document {
+	return e.doc
 }
 
 func (e *ElseIfNode) writeTo(sb *strings.Builder) {
@@ -197,6 +229,7 @@ func (e *ElseIfNode) writeTo(sb *strings.Builder) {
 type ElseNode struct {
 	Pos
 	NodeType
+	doc     *Document
 	Branchs []Node
 }
 
@@ -210,7 +243,11 @@ func (e *ElseNode) String() string {
 }
 
 func (e *ElseNode) Copy() Node {
-	return &IfNode{Pos: e.Pos, NodeType: e.NodeType}
+	return &ElseNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (e *ElseNode) document() *Document {
+	return e.doc
 }
 
 func (e *ElseNode) writeTo(sb *strings.Builder) {
@@ -220,6 +257,7 @@ func (e *ElseNode) writeTo(sb *strings.Builder) {
 type EndIfNode struct {
 	Pos
 	NodeType
+	doc *Document
 }
 
 func (e *EndIfNode) String() string {
@@ -227,7 +265,11 @@ func (e *EndIfNode) String() string {
 }
 
 func (e *EndIfNode) Copy() Node {
-	return &IfNode{Pos: e.Pos, NodeType: e.NodeType}
+	return &EndIfNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (e *EndIfNode) document() *Document {
+	return e.doc
 }
 
 func (e *EndIfNode) writeTo(sb *strings.Builder) {
@@ -237,6 +279,7 @@ func (e *EndIfNode) writeTo(sb *strings.Builder) {
 type RangeNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 	Branchs  []Node
 }
@@ -253,7 +296,11 @@ func (r *RangeNode) String() string {
 }
 
 func (r *RangeNode) Copy() Node {
-	return &IfNode{Pos: r.Pos, NodeType: r.NodeType, PipeNode: r.PipeNode.Copy().(*PipeNode)}
+	return &RangeNode{Pos: r.Pos, NodeType: r.NodeType, PipeNode: r.PipeNode.Copy().(*PipeNode), doc: r.doc}
+}
+
+func (r *RangeNode) document() *Document {
+	return r.doc
 }
 
 func (r *RangeNode) writeTo(sb *strings.Builder) {
@@ -263,6 +310,7 @@ func (r *RangeNode) writeTo(sb *strings.Builder) {
 type EndRangeNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 	Branchs  []Node
 }
@@ -272,7 +320,11 @@ func (e *EndRangeNode) String() string {
 }
 
 func (e *EndRangeNode) Copy() Node {
-	return &IfNode{Pos: e.Pos, NodeType: e.NodeType}
+	return &EndRangeNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (e *EndRangeNode) document() *Document {
+	return e.doc
 }
 
 func (e *EndRangeNode) writeTo(sb *strings.Builder) {
@@ -282,6 +334,7 @@ func (e *EndRangeNode) writeTo(sb *strings.Builder) {
 type SetNode struct {
 	Pos
 	NodeType
+	doc      *Document
 	PipeNode *PipeNode
 }
 
@@ -294,7 +347,11 @@ func (s *SetNode) String() string {
 }
 
 func (s *SetNode) Copy() Node {
-	return &SetNode{Pos: s.Pos, NodeType: s.NodeType, PipeNode: s.PipeNode}
+	return &SetNode{Pos: s.Pos, NodeType: s.NodeType, PipeNode: s.PipeNode, doc: s.doc}
+}
+
+func (s *SetNode) document() *Document {
+	return s.doc
 }
 
 func (s *SetNode) writeTo(sb *strings.Builder) {
@@ -304,6 +361,7 @@ func (s *SetNode) writeTo(sb *strings.Builder) {
 type BlockNode struct {
 	Pos
 	NodeType
+	doc     *Document
 	Name    string
 	Branchs []Node
 }
@@ -320,7 +378,11 @@ func (b *BlockNode) String() string {
 }
 
 func (b *BlockNode) Copy() Node {
-	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Branchs: b.Branchs}
+	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Branchs: b.Branchs, doc: b.doc}
+}
+
+func (b *BlockNode) document() *Document {
+	return b.doc
 }
 
 func (b *BlockNode) writeTo(sb *strings.Builder) {
@@ -330,6 +392,7 @@ func (b *BlockNode) writeTo(sb *strings.Builder) {
 type EndBlockNode struct {
 	Pos
 	NodeType
+	doc *Document
 }
 
 func (e *EndBlockNode) String() string {
@@ -337,7 +400,11 @@ func (e *EndBlockNode) String() string {
 }
 
 func (e *EndBlockNode) Copy() Node {
-	return &EndBlockNode{Pos: e.Pos, NodeType: e.NodeType}
+	return &EndBlockNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (b *EndBlockNode) document() *Document {
+	return b.doc
 }
 
 func (e *EndBlockNode) writeTo(sb *strings.Builder) {
@@ -347,6 +414,7 @@ func (e *EndBlockNode) writeTo(sb *strings.Builder) {
 type ImportNode struct {
 	Pos
 	NodeType
+	doc *Document
 }
 
 func (i *ImportNode) String() string {
@@ -354,7 +422,11 @@ func (i *ImportNode) String() string {
 }
 
 func (i *ImportNode) Copy() Node {
-	return &ImportNode{Pos: i.Pos, NodeType: i.NodeType}
+	return &ImportNode{Pos: i.Pos, NodeType: i.NodeType, doc: i.doc}
+}
+
+func (b *ImportNode) document() *Document {
+	return b.doc
 }
 
 func (i *ImportNode) writeTo(sb *strings.Builder) {

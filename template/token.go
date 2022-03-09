@@ -14,13 +14,13 @@ const (
 	TYPE_STRING
 	TYPE_OPERATOR
 	TYPE_PUNCTUATION
-	TYPE_ARROW
 )
 
 type Token struct {
 	value string
 	typ   int
 	line  int
+	At    int
 }
 
 func (t *Token) String() string {
@@ -29,15 +29,15 @@ func (t *Token) String() string {
 
 // func (ts *Token) Test(typ int, value interface{}) bool
 
-func (t *Token) GetValue() string {
+func (t *Token) Value() string {
 	return t.value
 }
 
-func (t *Token) GetType() int {
+func (t *Token) Type() int {
 	return t.typ
 }
 
-func (t *Token) GetLine() int {
+func (t *Token) Line() int {
 	return t.line
 }
 
@@ -65,8 +65,6 @@ func TypeToString(typ int) (name string) {
 		name = "TYPE_OPERATOR"
 	case TYPE_PUNCTUATION:
 		name = "TYPE_PUNCTUATION"
-	case TYPE_ARROW:
-		name = "TYPE_ARROW"
 	default:
 		panic(fmt.Sprintf("Token of type '%d' does not exist.", typ))
 	}
@@ -97,8 +95,6 @@ func TypeToEnglish(typ int) string {
 		return "operator"
 	case TYPE_PUNCTUATION:
 		return "punctuation"
-	case TYPE_ARROW:
-		return "arrow function"
 	default:
 		panic(fmt.Sprintf("Token of type '%d' does not exist.", typ))
 	}

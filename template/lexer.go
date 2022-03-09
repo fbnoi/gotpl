@@ -17,6 +17,7 @@ var (
 		"+=", "-=", "++", "--",
 		">", "<", ">=", "<=", "&&", "^", "||",
 		">>", "<<", "&", "|", ">>=", "<<=", "&=", "|=",
+		"or", "and", "is",
 	}
 )
 
@@ -38,7 +39,7 @@ var (
 	// whitespace
 	reg_whitespace = regexp.MustCompile(`^\s+`)
 	// +-*%&^|><=
-	reg_operator = regexp.MustCompile(`[\+\-\*%&\^\|><=:]{1,3}`)
+	reg_operator = regexp.MustCompile(`[\+\-\&*%\^><=:]{1,3}|(and)|(or)`)
 	// name
 	reg_name = regexp.MustCompile(`[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*`)
 	// number
@@ -178,8 +179,13 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) {
 			subp := lex.findStringIndex(reg_whitespace, lex.code[:position[0]], lex.cursor)
 			lex.moveCursor(subp[1])
 		}
-		// name
-		if subp := lex.findStringIndex(reg_name, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
+		// operator
+		if subp := lex.findStringIndex(reg_operator, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
+			lex.pushToken(TYPE_OPERATOR, lex.code[lex.cursor:subp[1]])
+			lex.moveCursor(subp[1])
+
+			// name
+		} else if subp := lex.findStringIndex(reg_name, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
 			lex.pushToken(TYPE_NAME, lex.code[lex.cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
@@ -191,11 +197,6 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) {
 			// string
 		} else if subp := lex.findStringIndex(reg_string, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
 			lex.pushToken(TYPE_STRING, lex.code[lex.cursor:subp[1]])
-			lex.moveCursor(subp[1])
-
-			// operator
-		} else if subp := lex.findStringIndex(reg_operator, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
-			lex.pushToken(TYPE_OPERATOR, lex.code[lex.cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// punctuation
