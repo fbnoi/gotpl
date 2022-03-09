@@ -284,3 +284,79 @@ type SetNode struct {
 	NodeType
 	PipeNode *PipeNode
 }
+
+func (s *SetNode) String() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{% Set ")
+	sb.WriteString(s.PipeNode.String())
+	sb.WriteString(" %}")
+	return sb.String()
+}
+
+func (s *SetNode) Copy() Node {
+	return &SetNode{Pos: s.Pos, NodeType: s.NodeType, PipeNode: s.PipeNode}
+}
+
+func (s *SetNode) writeTo(sb *strings.Builder) {
+	sb.WriteString(s.String())
+}
+
+type BlockNode struct {
+	Pos
+	NodeType
+	Name    string
+	Branchs []Node
+}
+
+func (b *BlockNode) String() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{% block ")
+	sb.WriteString(b.Name)
+	sb.WriteString(" %}")
+	for _, n := range b.Branchs {
+		sb.WriteString(n.String())
+	}
+	return sb.String()
+}
+
+func (b *BlockNode) Copy() Node {
+	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Branchs: b.Branchs}
+}
+
+func (b *BlockNode) writeTo(sb *strings.Builder) {
+	sb.WriteString(b.String())
+}
+
+type EndBlockNode struct {
+	Pos
+	NodeType
+}
+
+func (e *EndBlockNode) String() string {
+	return "{% endblock %}"
+}
+
+func (e *EndBlockNode) Copy() Node {
+	return &EndBlockNode{Pos: e.Pos, NodeType: e.NodeType}
+}
+
+func (e *EndBlockNode) writeTo(sb *strings.Builder) {
+	sb.WriteString(e.String())
+}
+
+type ImportNode struct {
+	Pos
+	NodeType
+}
+
+func (i *ImportNode) String() string {
+	return "{% endblock %}"
+}
+
+func (i *ImportNode) Copy() Node {
+	return &ImportNode{Pos: i.Pos, NodeType: i.NodeType}
+}
+
+func (i *ImportNode) writeTo(sb *strings.Builder) {
+	sb.WriteString(i.String())
+}
