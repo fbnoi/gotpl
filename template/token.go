@@ -16,22 +16,6 @@ const (
 	TYPE_PUNCTUATION
 )
 
-type Ceil struct {
-	nodes []Node
-}
-
-func (c *Ceil) Hang(node Node) {
-	c.nodes = append(c.nodes, node)
-}
-
-func (c *Ceil) Copy() *Ceil {
-	node := make([]Node, len(c.nodes))
-	for i := 0; i < len(node); i++ {
-		node[i] = c.nodes[i].Copy()
-	}
-	return &Ceil{nodes: node}
-}
-
 type Token struct {
 	value string
 	typ   int

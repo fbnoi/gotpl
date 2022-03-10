@@ -5,16 +5,6 @@ import (
 )
 
 const (
-	FnMethod FuncType = iota
-	FnFunc
-)
-
-const (
-	ArgField ArgType = iota
-	ArgFunc
-)
-
-const (
 	NodeText     NodeType = iota // Plain text.
 	NodeValue                    // A non-control action such as a field evaluation.
 	NodePipe                     // A non-control action such as a field evaluation.
@@ -51,18 +41,8 @@ func (p Pos) Position() Pos {
 	return p
 }
 
-type FuncType int
-
-type FuncInfo struct {
-	Signature string
-	Typ       FuncType
-}
-
-type ArgType int
-
-type ArgInfo struct {
-	Name string
-	Typ  ArgType
+type Ceil interface {
+	Hang(node Node)
 }
 
 type Node interface {
@@ -190,7 +170,6 @@ func (p *PipeNode) writeTo(sb *strings.Builder) {
 type IfNode struct {
 	Pos
 	NodeType
-	Ceil
 	doc      *Document
 	PipeNode *PipeNode
 }

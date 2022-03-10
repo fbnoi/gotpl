@@ -21,3 +21,9 @@ type Document struct {
 	Name         string
 	Root         bool
 }
+
+func (doc *Document) Copy() *Document {
+	return &Document{
+		Ceil: doc.Ceil.Copy(),
+	}
+}
