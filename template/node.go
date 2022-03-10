@@ -19,7 +19,7 @@ const (
 	NodeValue                    // A non-control action such as a field evaluation.
 	NodePipe                     // A non-control action such as a field evaluation.
 	NodeIf                       // An if action.
-	NodeElif                     // An else if action
+	NodeElseif                   // An else if action
 	NodeElse                     // An else action
 	NodeEndIf                    // An end if action
 	NodeRange                    // A range action.
@@ -84,7 +84,11 @@ type TextNode struct {
 	Pos
 	NodeType
 	doc  *Document
-	Text []byte
+	Text string
+}
+
+func newTextNode(content string, pos int, doc *Document) *TextNode {
+	return &TextNode{Pos: Pos(pos), NodeType: NodeText, doc: doc}
 }
 
 func (t *TextNode) String() string {
@@ -154,6 +158,10 @@ type PipeNode struct {
 	express string
 }
 
+func newPipeNode(express string, pos int, doc *Document) *PipeNode {
+	return &PipeNode{express: express, Pos: Pos(pos), NodeType: NodePipe}
+}
+
 func (p *PipeNode) String() string {
 	return p.express
 }
@@ -182,9 +190,13 @@ func (p *PipeNode) writeTo(sb *strings.Builder) {
 type IfNode struct {
 	Pos
 	NodeType
+	Ceil
 	doc      *Document
 	PipeNode *PipeNode
-	Branchs  []Node
+}
+
+func newIfNode(pos int, doc *Document) *IfNode {
+	return &IfNode{Pos: Pos(pos), NodeType: NodeIf, doc: doc}
 }
 
 func (i *IfNode) String() string {
@@ -192,7 +204,7 @@ func (i *IfNode) String() string {
 	sb.WriteString("{% if ")
 	sb.WriteString(i.PipeNode.String())
 	sb.WriteString(" %}")
-	for _, node := range i.Branchs {
+	for _, node := range i.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -207,7 +219,7 @@ func (i *IfNode) Parse() string {
 	sb.WriteString("{{ if ")
 	sb.WriteString(i.PipeNode.String())
 	sb.WriteString(" }}")
-	for _, node := range i.Branchs {
+	for _, node := range i.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -224,9 +236,13 @@ func (i *IfNode) writeTo(sb *strings.Builder) {
 type ElseIfNode struct {
 	Pos
 	NodeType
+	Ceil
 	doc      *Document
 	PipeNode *PipeNode
-	Branchs  []Node
+}
+
+func newElseIfNode(pos int, doc *Document) *ElseIfNode {
+	return &ElseIfNode{Pos: Pos(pos), NodeType: NodeIf, doc: doc}
 }
 
 func (e *ElseIfNode) String() string {
@@ -234,14 +250,20 @@ func (e *ElseIfNode) String() string {
 	sb.WriteString("{% elseif ")
 	sb.WriteString(e.PipeNode.String())
 	sb.WriteString(" %}")
-	for _, node := range e.Branchs {
+	for _, node := range e.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
 }
 
 func (e *ElseIfNode) Copy() Node {
-	return &ElseIfNode{Pos: e.Pos, NodeType: e.NodeType, PipeNode: e.PipeNode.Copy().(*PipeNode), doc: e.doc}
+	return &ElseIfNode{
+		Pos:      e.Pos,
+		NodeType: e.NodeType,
+		Ceil:     e.Ceil,
+		PipeNode: e.PipeNode.Copy().(*PipeNode),
+		doc:      e.doc,
+	}
 }
 
 func (e *ElseIfNode) Parse() string {
@@ -249,7 +271,7 @@ func (e *ElseIfNode) Parse() string {
 	sb.WriteString("{{ else if ")
 	sb.WriteString(e.PipeNode.String())
 	sb.WriteString(" }}")
-	for _, node := range e.Branchs {
+	for _, node := range e.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -266,14 +288,14 @@ func (e *ElseIfNode) writeTo(sb *strings.Builder) {
 type ElseNode struct {
 	Pos
 	NodeType
-	doc     *Document
-	Branchs []Node
+	Ceil
+	doc *Document
 }
 
 func (e *ElseNode) String() string {
 	sb := &strings.Builder{}
 	sb.WriteString("{% else %}")
-	for _, node := range e.Branchs {
+	for _, node := range e.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -286,7 +308,7 @@ func (e *ElseNode) Copy() Node {
 func (e *ElseNode) Parse() string {
 	sb := &strings.Builder{}
 	sb.WriteString("{{ else }}")
-	for _, node := range e.Branchs {
+	for _, node := range e.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -329,9 +351,9 @@ func (e *EndIfNode) writeTo(sb *strings.Builder) {
 type RangeNode struct {
 	Pos
 	NodeType
+	Ceil
 	doc      *Document
 	PipeNode *PipeNode
-	Branchs  []Node
 }
 
 func (r *RangeNode) String() string {
@@ -339,7 +361,7 @@ func (r *RangeNode) String() string {
 	sb.WriteString("{% for ")
 	sb.WriteString(r.PipeNode.String())
 	sb.WriteString(" %}")
-	for _, node := range r.Branchs {
+	for _, node := range r.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -354,7 +376,7 @@ func (r *RangeNode) Parse() string {
 	sb.WriteString("{{ for ")
 	sb.WriteString(r.PipeNode.String())
 	sb.WriteString(" }}")
-	for _, node := range r.Branchs {
+	for _, node := range r.Ceil.nodes {
 		sb.WriteString(node.String())
 	}
 	return sb.String()
@@ -371,9 +393,9 @@ func (r *RangeNode) writeTo(sb *strings.Builder) {
 type EndRangeNode struct {
 	Pos
 	NodeType
+	Ceil
 	doc      *Document
 	PipeNode *PipeNode
-	Branchs  []Node
 }
 
 func (e *EndRangeNode) String() string {
@@ -434,9 +456,9 @@ func (s *SetNode) writeTo(sb *strings.Builder) {
 type BlockNode struct {
 	Pos
 	NodeType
-	doc     *Document
-	Name    string
-	Branchs []Node
+	Ceil
+	doc  *Document
+	Name string
 }
 
 func (b *BlockNode) String() string {
@@ -444,14 +466,14 @@ func (b *BlockNode) String() string {
 	sb.WriteString("{% block ")
 	sb.WriteString(b.Name)
 	sb.WriteString(" %}")
-	for _, n := range b.Branchs {
+	for _, n := range b.Ceil.nodes {
 		sb.WriteString(n.String())
 	}
 	return sb.String()
 }
 
 func (b *BlockNode) Copy() Node {
-	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Branchs: b.Branchs, doc: b.doc}
+	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Ceil: b.Ceil, doc: b.doc}
 }
 
 func (b *BlockNode) Parse() string {
@@ -459,7 +481,7 @@ func (b *BlockNode) Parse() string {
 	sb.WriteString("{% block ")
 	sb.WriteString(b.Name)
 	sb.WriteString(" %}")
-	for _, n := range b.Branchs {
+	for _, n := range b.Ceil.nodes {
 		sb.WriteString(n.String())
 	}
 	return sb.String()

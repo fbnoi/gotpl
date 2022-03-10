@@ -16,8 +16,8 @@ const (
 
 // Document is the representation of a single parsed template.
 type Document struct {
+	Ceil
 	LastModified *time.Time
 	Name         string
 	Root         bool
-	Branchs      []Node
 }

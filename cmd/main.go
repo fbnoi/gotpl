@@ -5,7 +5,7 @@ import (
 	"gotpl/template"
 )
 
-var html = `{% if a == 1 && b == 2 %}`
+var html = `{% elseif %}`
 
 func main() {
 	lexer := &template.Lexer{}
