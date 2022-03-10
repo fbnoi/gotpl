@@ -73,6 +73,7 @@ type Node interface {
 	// CopyXxx methods that return *XxxNode.
 	Copy() Node
 	Position() Pos // byte position of start of node in full original input string
+	Parse() string
 	// It is unexported so all implementations of Node are in this package.
 	document() *Document
 	// writeTo writes the String output to the builder.
@@ -92,6 +93,10 @@ func (t *TextNode) String() string {
 
 func (t *TextNode) Copy() Node {
 	return &TextNode{Pos: t.Pos, NodeType: t.NodeType, Text: t.Text, doc: t.doc}
+}
+
+func (t *TextNode) Parse() string {
+	return t.String()
 }
 
 func (t *TextNode) document() *Document {
@@ -126,6 +131,14 @@ func (v *ValueNode) Copy() Node {
 	}
 }
 
+func (v *ValueNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{")
+	sb.WriteString(v.PipeNode.String())
+	sb.WriteString("}}")
+	return sb.String()
+}
+
 func (v *ValueNode) document() *Document {
 	return v.doc
 }
@@ -137,13 +150,12 @@ func (v *ValueNode) writeTo(sb *strings.Builder) {
 type PipeNode struct {
 	Pos
 	NodeType
-	doc      *Document
-	FnStack  []FuncInfo
-	ArgStack [][]ArgInfo
+	doc     *Document
+	express string
 }
 
 func (p *PipeNode) String() string {
-	return ""
+	return p.express
 }
 
 func (p *PipeNode) Copy() Node {
@@ -151,9 +163,12 @@ func (p *PipeNode) Copy() Node {
 		Pos:      p.Pos,
 		NodeType: p.NodeType,
 		doc:      p.doc,
-		FnStack:  p.FnStack,
-		ArgStack: p.ArgStack,
+		express:  p.express,
 	}
+}
+
+func (v *PipeNode) Parse() string {
+	return v.String()
 }
 
 func (p *PipeNode) document() *Document {
@@ -174,7 +189,7 @@ type IfNode struct {
 
 func (i *IfNode) String() string {
 	sb := &strings.Builder{}
-	sb.WriteString("{% if")
+	sb.WriteString("{% if ")
 	sb.WriteString(i.PipeNode.String())
 	sb.WriteString(" %}")
 	for _, node := range i.Branchs {
@@ -185,6 +200,17 @@ func (i *IfNode) String() string {
 
 func (i *IfNode) Copy() Node {
 	return &IfNode{Pos: i.Pos, NodeType: i.NodeType, PipeNode: i.PipeNode.Copy().(*PipeNode)}
+}
+
+func (i *IfNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{ if ")
+	sb.WriteString(i.PipeNode.String())
+	sb.WriteString(" }}")
+	for _, node := range i.Branchs {
+		sb.WriteString(node.String())
+	}
+	return sb.String()
 }
 
 func (i *IfNode) document() *Document {
@@ -205,7 +231,7 @@ type ElseIfNode struct {
 
 func (e *ElseIfNode) String() string {
 	sb := &strings.Builder{}
-	sb.WriteString("{% elseif")
+	sb.WriteString("{% elseif ")
 	sb.WriteString(e.PipeNode.String())
 	sb.WriteString(" %}")
 	for _, node := range e.Branchs {
@@ -216,6 +242,17 @@ func (e *ElseIfNode) String() string {
 
 func (e *ElseIfNode) Copy() Node {
 	return &ElseIfNode{Pos: e.Pos, NodeType: e.NodeType, PipeNode: e.PipeNode.Copy().(*PipeNode), doc: e.doc}
+}
+
+func (e *ElseIfNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{ else if ")
+	sb.WriteString(e.PipeNode.String())
+	sb.WriteString(" }}")
+	for _, node := range e.Branchs {
+		sb.WriteString(node.String())
+	}
+	return sb.String()
 }
 
 func (e *ElseIfNode) document() *Document {
@@ -246,6 +283,15 @@ func (e *ElseNode) Copy() Node {
 	return &ElseNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
 }
 
+func (e *ElseNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{ else }}")
+	for _, node := range e.Branchs {
+		sb.WriteString(node.String())
+	}
+	return sb.String()
+}
+
 func (e *ElseNode) document() *Document {
 	return e.doc
 }
@@ -266,6 +312,10 @@ func (e *EndIfNode) String() string {
 
 func (e *EndIfNode) Copy() Node {
 	return &EndIfNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (e *EndIfNode) Parse() string {
+	return "{{ end }}"
 }
 
 func (e *EndIfNode) document() *Document {
@@ -299,6 +349,17 @@ func (r *RangeNode) Copy() Node {
 	return &RangeNode{Pos: r.Pos, NodeType: r.NodeType, PipeNode: r.PipeNode.Copy().(*PipeNode), doc: r.doc}
 }
 
+func (r *RangeNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{ for ")
+	sb.WriteString(r.PipeNode.String())
+	sb.WriteString(" }}")
+	for _, node := range r.Branchs {
+		sb.WriteString(node.String())
+	}
+	return sb.String()
+}
+
 func (r *RangeNode) document() *Document {
 	return r.doc
 }
@@ -321,6 +382,10 @@ func (e *EndRangeNode) String() string {
 
 func (e *EndRangeNode) Copy() Node {
 	return &EndRangeNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
+}
+
+func (e *EndRangeNode) Parse() string {
+	return "{{ end }}"
 }
 
 func (e *EndRangeNode) document() *Document {
@@ -348,6 +413,14 @@ func (s *SetNode) String() string {
 
 func (s *SetNode) Copy() Node {
 	return &SetNode{Pos: s.Pos, NodeType: s.NodeType, PipeNode: s.PipeNode, doc: s.doc}
+}
+
+func (s *SetNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{{ Set ")
+	sb.WriteString(s.PipeNode.String())
+	sb.WriteString(" }}")
+	return sb.String()
 }
 
 func (s *SetNode) document() *Document {
@@ -381,6 +454,17 @@ func (b *BlockNode) Copy() Node {
 	return &BlockNode{Pos: b.Pos, NodeType: b.NodeType, Branchs: b.Branchs, doc: b.doc}
 }
 
+func (b *BlockNode) Parse() string {
+	sb := &strings.Builder{}
+	sb.WriteString("{% block ")
+	sb.WriteString(b.Name)
+	sb.WriteString(" %}")
+	for _, n := range b.Branchs {
+		sb.WriteString(n.String())
+	}
+	return sb.String()
+}
+
 func (b *BlockNode) document() *Document {
 	return b.doc
 }
@@ -403,6 +487,10 @@ func (e *EndBlockNode) Copy() Node {
 	return &EndBlockNode{Pos: e.Pos, NodeType: e.NodeType, doc: e.doc}
 }
 
+func (b *EndBlockNode) Parse() string {
+	return "{{ end }}"
+}
+
 func (b *EndBlockNode) document() *Document {
 	return b.doc
 }
@@ -423,6 +511,10 @@ func (i *ImportNode) String() string {
 
 func (i *ImportNode) Copy() Node {
 	return &ImportNode{Pos: i.Pos, NodeType: i.NodeType, doc: i.doc}
+}
+
+func (i *ImportNode) Parse() string {
+	return "{{ end }}"
 }
 
 func (b *ImportNode) document() *Document {
