@@ -5,7 +5,6 @@ import "strings"
 type Parser struct {
 	nodeStack []Node
 	stream    *TokenStream
-	ceil      *Ceil
 	floor     Node
 	doc       *Document
 }
@@ -31,8 +30,8 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 }
 
 func (p *Parser) parseText(token *Token) {
-	textNode := newTextNode(token.Value(), token.At, p.doc)
-	p.ceil.Hang(textNode)
+	// textNode := newTextNode(token.Value(), token.At, p.doc)
+	// p.ceil.Hang(textNode)
 }
 func (p *Parser) parseBlock(token *Token) {
 	if token.Type() == TYPE_BLOCK_START {
@@ -69,7 +68,7 @@ func (p *Parser) parseIfNode(token *Token) {
 		sb.WriteString(token.Value())
 		token = p.stream.Next()
 	}
-	node.PipeNode = newPipeNode(sb.String(), pos, p.doc)
+	node.PipeNode = newPipeNode(sb.String(), pos)
 	p.floor = node
 }
 
@@ -87,7 +86,7 @@ func (p *Parser) parseElseIfNode(token *Token) {
 		sb.WriteString(token.Value())
 		token = p.stream.Next()
 	}
-	node.PipeNode = newPipeNode(sb.String(), pos, p.doc)
+	node.PipeNode = newPipeNode(sb.String(), pos)
 	p.floor = node
 }
 
@@ -109,7 +108,7 @@ func (p *Parser) parsePipeNode(token *Token) {
 		sb.WriteString(token.Value())
 		token = p.stream.Next()
 	}
-	node := newPipeNode(sb.String(), pos, p.doc)
+	node := newPipeNode(sb.String(), pos)
 	switch p.floor.Type() {
 	case NodeIf:
 		p.floor.(*IfNode).PipeNode = node

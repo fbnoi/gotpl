@@ -16,14 +16,11 @@ const (
 
 // Document is the representation of a single parsed template.
 type Document struct {
-	Ceil
 	LastModified *time.Time
 	Name         string
 	Root         bool
 }
 
-func (doc *Document) Copy() *Document {
-	return &Document{
-		Ceil: doc.Ceil.Copy(),
-	}
-}
+// func (doc *Document) Copy() *Document {
+
+// }
