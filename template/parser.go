@@ -3,15 +3,17 @@ package template
 import "strings"
 
 type Parser struct {
-	nodeStack []Node
+	nodeStack []BranchAble
 	stream    *TokenStream
-	floor     Node
+	upper     BranchAble
+	cursor    Node
 	doc       *Document
 }
 
 func (p *Parser) Parse(stream *TokenStream) *Document {
 	p.stream = stream
 	p.doc = &Document{}
+	p.upper = p.doc
 	for !stream.IsEOF() {
 		token := stream.Next()
 		switch token.Type() {
@@ -19,8 +21,7 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 			p.parseText(token)
 		case TYPE_BLOCK_START, TYPE_BLOCK_END:
 			p.parseBlock(token)
-		case TYPE_VAR_START:
-		case TYPE_VAR_END:
+		case TYPE_VAR_START, TYPE_VAR_END:
 		case TYPE_NAME, TYPE_NUMBER, TYPE_STRING, TYPE_OPERATOR, TYPE_PUNCTUATION:
 			p.parsePipeNode(token)
 		default:
@@ -30,8 +31,7 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 }
 
 func (p *Parser) parseText(token *Token) {
-	// textNode := newTextNode(token.Value(), token.At, p.doc)
-	// p.ceil.Hang(textNode)
+	p.upper.Append(newTextNode(token.Value(), token.At))
 }
 func (p *Parser) parseBlock(token *Token) {
 	if token.Type() == TYPE_BLOCK_START {
@@ -58,10 +58,6 @@ func (p *Parser) parseBlock(token *Token) {
 
 func (p *Parser) parseIfNode(token *Token) {
 	node := newIfNode(token.At, p.doc)
-	if p.floor != nil {
-		p.nodeStack = append(p.nodeStack, p.floor)
-	}
-
 	pos := token.At
 	sb := &strings.Builder{}
 	for token.Type() != TYPE_BLOCK_END {
@@ -69,16 +65,18 @@ func (p *Parser) parseIfNode(token *Token) {
 		token = p.stream.Next()
 	}
 	node.PipeNode = newPipeNode(sb.String(), pos)
-	p.floor = node
+	p.cursor = node
+	p.upper.Append(node)
+	p.nodeStack = append(p.nodeStack, p.upper)
+	p.upper = node
 }
 
 func (p *Parser) parseElseIfNode(token *Token) {
-	node := newElseIfNode(token.At, p.doc)
-	if p.floor != nil {
-		if p.floor.Type() != NodeElseif || p.floor.Type() != NodeIf {
+	node := newElseIfNode(token.At)
+	if p.cursor != nil {
+		if p.cursor.Type() != NodeElseif || p.cursor.Type() != NodeIf {
 			panic("")
 		}
-		p.nodeStack = append(p.nodeStack, p.floor)
 	}
 	pos := token.At
 	sb := &strings.Builder{}
@@ -87,18 +85,17 @@ func (p *Parser) parseElseIfNode(token *Token) {
 		token = p.stream.Next()
 	}
 	node.PipeNode = newPipeNode(sb.String(), pos)
-	p.floor = node
+	p.cursor = node
 }
 
 func (p *Parser) parseElseNode(token *Token) {
 	node := newIfNode(token.At, p.doc)
-	if p.floor != nil {
-		if p.floor.Type() != NodeElseif || p.floor.Type() != NodeIf {
+	if p.cursor != nil {
+		if p.cursor.Type() != NodeElseif || p.cursor.Type() != NodeIf {
 			panic("")
 		}
-		p.nodeStack = append(p.nodeStack, p.floor)
 	}
-	p.floor = node
+	p.cursor = node
 }
 
 func (p *Parser) parsePipeNode(token *Token) {
@@ -109,18 +106,30 @@ func (p *Parser) parsePipeNode(token *Token) {
 		token = p.stream.Next()
 	}
 	node := newPipeNode(sb.String(), pos)
-	switch p.floor.Type() {
+	switch p.cursor.Type() {
 	case NodeIf:
-		p.floor.(*IfNode).PipeNode = node
+		p.cursor.(*IfNode).PipeNode = node
 	case NodeElseif:
-		p.floor.(*ElseIfNode).PipeNode = node
+		p.cursor.(*ElseIfNode).PipeNode = node
 	case NodeSet:
-		p.floor.(*SetNode).PipeNode = node
+		p.cursor.(*SetNode).PipeNode = node
 	case NodeExtend:
-		// p.floor.().PipeNode = node
+		// p.cursor.().PipeNode = node
 	case NodeInclude:
-		// p.floor.(*SetNode).PipeNode = node
+		// p.cursor.(*SetNode).PipeNode = node
 	case NodeRange:
-		p.floor.(*RangeNode).PipeNode = node
+		p.cursor.(*RangeNode).PipeNode = node
 	}
+}
+
+func (p *Parser) pushStack() {
+	if b, ok := p.cursor.(BranchAble); ok {
+		p.upper.Append(p.cursor)
+		p.nodeStack = append(p.nodeStack, p.upper)
+		p.upper = b
+	}
+}
+
+func (p *Parser) popStack() {
+
 }

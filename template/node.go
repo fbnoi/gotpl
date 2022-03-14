@@ -64,7 +64,7 @@ type TextNode struct {
 	Text string
 }
 
-func newTextNode(content string, pos int, doc *Document) *TextNode {
+func newTextNode(content string, pos int) *TextNode {
 	return &TextNode{
 		Pos:      Pos(pos),
 		NodeType: NodeText,
@@ -228,7 +228,7 @@ type ElseIfNode struct {
 	Branches []Node
 }
 
-func newElseIfNode(pos int, doc *Document) *ElseIfNode {
+func newElseIfNode(pos int) *ElseIfNode {
 	return &ElseIfNode{
 		Pos:      Pos(pos),
 		NodeType: NodeIf,

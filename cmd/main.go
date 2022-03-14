@@ -2,22 +2,18 @@ package main
 
 import "fmt"
 
-type Slice interface {
-	Append(i int)
-}
+type A interface{}
 
-type ints []int
-
-func (nl *ints) Append(i int) {
-	*nl = append([]int(*nl), i)
-}
-
-type B struct {
-	ints
-}
+type b struct{}
 
 func main() {
-	var b Slice = &ints{}
-	b.Append(1)
-	fmt.Println(b)
+	x := &b{}
+	fmt.Printf("%p\n", x)
+	y := tointerface(x)
+	fmt.Printf("%p\n", y)
+	fmt.Printf("%p\n", y.(*b))
+}
+
+func tointerface(x interface{}) interface{} {
+	return x
 }
