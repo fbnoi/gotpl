@@ -1,13 +1,16 @@
 package template
 
-import "strings"
+type BranchAbleNode interface {
+	Node
+	BranchAble
+}
 
 type Parser struct {
-	nodeStack []BranchAble
-	stream    *TokenStream
-	upper     BranchAble
-	cursor    Node
-	doc       *Document
+	branchStack []BranchAbleNode
+	stream      *TokenStream
+	upper       BranchAbleNode
+	cursor      Node
+	doc         *Document
 }
 
 func (p *Parser) Parse(stream *TokenStream) *Document {
@@ -22,8 +25,6 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 		case TYPE_BLOCK_START, TYPE_BLOCK_END:
 			p.parseBlock(token)
 		case TYPE_VAR_START, TYPE_VAR_END:
-		case TYPE_NAME, TYPE_NUMBER, TYPE_STRING, TYPE_OPERATOR, TYPE_PUNCTUATION:
-			p.parsePipeNode(token)
 		default:
 		}
 	}
@@ -31,7 +32,8 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 }
 
 func (p *Parser) parseText(token *Token) {
-	p.upper.Append(newTextNode(token.Value(), token.At))
+	p.cursor = newTextNode(token.Value(), token.At)
+	p.upper.Append(p.cursor)
 }
 func (p *Parser) parseBlock(token *Token) {
 	if token.Type() == TYPE_BLOCK_START {
@@ -44,92 +46,158 @@ func (p *Parser) parseBlock(token *Token) {
 		case "else":
 			p.parseElseNode(token)
 		case "endif":
-			p.parseElseNode(token)
+			p.parseEndIfNode(token)
 		case "set":
+			p.parseSetNode(token)
 		case "for":
+			p.parseForNode(token)
 		case "endfor":
+			p.parseEndForNode(token)
 		case "block":
+			p.parseBlockNode(token)
 		case "endblock":
+			p.parseEndBlockNode(token)
 		case "extend":
+			p.parseExtendNode(token)
 		case "include":
+			p.parseIncludeNode(token)
 		}
 	}
+}
+
+func (p *Parser) parseIncludeNode(token *Token) {
+
+}
+
+func (p *Parser) parseExtendNode(token *Token) {
+	var name string
+	for token.Type() != TYPE_BLOCK_END {
+		if name != "" {
+			panic("")
+		}
+		name = token.Value()
+	}
+	node := newExtendNode(name, token.At)
+	p.upper.Append(node)
+	p.moveCursor(node)
+}
+
+func (p *Parser) parseEndBlockNode(token *Token) {
+	if p.cursor.Type() == NodeEndBlock {
+		node := newEndRangeNode(token.At)
+		p.upper.Append(node)
+		p.moveCursor(node)
+	}
+	panic("")
+}
+
+func (p *Parser) parseBlockNode(token *Token) {
+	var name string
+	for token.Type() != TYPE_BLOCK_END {
+		if name != "" {
+			panic("")
+		}
+		name = token.Value()
+	}
+	node := newBlockNode(name, token.At)
+	p.upper.Append(node)
+	p.moveCursor(node)
+}
+
+func (p *Parser) parseEndForNode(token *Token) {
+	if p.cursor.Type() == NodeEndRange {
+		node := newEndRangeNode(token.At)
+		p.upper.Append(node)
+		p.moveCursor(node)
+	}
+	panic("")
+}
+
+func (p *Parser) parseForNode(token *Token) {
+	node := newRangeNode(token.At)
+	p.evalExpression(node)
+	p.upper.Append(node)
+	p.moveCursor(node)
+}
+
+func (p *Parser) parseSetNode(token *Token) {
+	node := newSetNode(token.At)
+	p.evalExpression(node)
+	p.upper.Append(node)
+	p.moveCursor(node)
 }
 
 func (p *Parser) parseIfNode(token *Token) {
-	node := newIfNode(token.At, p.doc)
-	pos := token.At
-	sb := &strings.Builder{}
-	for token.Type() != TYPE_BLOCK_END {
-		sb.WriteString(token.Value())
-		token = p.stream.Next()
-	}
-	node.PipeNode = newPipeNode(sb.String(), pos)
-	p.cursor = node
+	node := newIfNode(token.At)
+	p.evalExpression(node)
 	p.upper.Append(node)
-	p.nodeStack = append(p.nodeStack, p.upper)
-	p.upper = node
+	p.moveCursor(node)
 }
 
 func (p *Parser) parseElseIfNode(token *Token) {
-	node := newElseIfNode(token.At)
-	if p.cursor != nil {
-		if p.cursor.Type() != NodeElseif || p.cursor.Type() != NodeIf {
-			panic("")
-		}
+	if p.cursor.Type() == NodeIf || p.cursor.Type() == NodeElseif {
+		node := newElseIfNode(token.At)
+		p.evalExpression(node)
+		p.upper.Append(node)
+		p.moveCursor(node)
+		p.upper = node
 	}
-	pos := token.At
-	sb := &strings.Builder{}
-	for token.Type() != TYPE_BLOCK_END {
-		sb.WriteString(token.Value())
-		token = p.stream.Next()
-	}
-	node.PipeNode = newPipeNode(sb.String(), pos)
-	p.cursor = node
+	panic("")
 }
 
 func (p *Parser) parseElseNode(token *Token) {
-	node := newIfNode(token.At, p.doc)
-	if p.cursor != nil {
-		if p.cursor.Type() != NodeElseif || p.cursor.Type() != NodeIf {
-			panic("")
-		}
+	if p.cursor.Type() == NodeIf || p.cursor.Type() == NodeElseif {
+		node := newElseNode(token.At)
+		p.upper.Append(node)
+		p.moveCursor(node)
+		p.upper = node
 	}
-	p.cursor = node
+	panic("")
 }
 
-func (p *Parser) parsePipeNode(token *Token) {
-	pos := token.At
-	sb := &strings.Builder{}
-	for token.Type() != TYPE_BLOCK_END {
-		sb.WriteString(token.Value())
-		token = p.stream.Next()
+func (p *Parser) parseEndIfNode(token *Token) {
+	if p.upper.Type() == NodeIf || p.cursor.Type() == NodeElseif {
+		node := newEndIfNode(token.At)
+		p.upper.Append(node)
+		p.moveCursor(node)
 	}
-	node := newPipeNode(sb.String(), pos)
-	switch p.cursor.Type() {
-	case NodeIf:
-		p.cursor.(*IfNode).PipeNode = node
-	case NodeElseif:
-		p.cursor.(*ElseIfNode).PipeNode = node
-	case NodeSet:
-		p.cursor.(*SetNode).PipeNode = node
-	case NodeExtend:
-		// p.cursor.().PipeNode = node
-	case NodeInclude:
-		// p.cursor.(*SetNode).PipeNode = node
-	case NodeRange:
-		p.cursor.(*RangeNode).PipeNode = node
-	}
+	panic("")
 }
 
-func (p *Parser) pushStack() {
-	if b, ok := p.cursor.(BranchAble); ok {
-		p.upper.Append(p.cursor)
-		p.nodeStack = append(p.nodeStack, p.upper)
-		p.upper = b
-	}
+func (p *Parser) evalExpression(n Node) {
+	// sb := &strings.Builder{}
+	// for token.Type() != TYPE_BLOCK_END {
+	// 	sb.WriteString(token.Value())
+	// 	token = p.stream.Next()
+	// }
+	// node.Expression = Expression(sb.String())
+	// p.cursor = node
 }
 
-func (p *Parser) popStack() {
+func (p *Parser) pushStack(n BranchAbleNode) {
+	p.branchStack = append(p.branchStack, p.upper)
+	p.upper = n
+}
 
+func (p *Parser) popStack() BranchAbleNode {
+	l := len(p.branchStack)
+	if l == 0 {
+		panic("")
+	}
+
+	p.upper = p.branchStack[l-1]
+	p.branchStack = p.branchStack[:l-1]
+	return p.upper
+}
+
+func (p *Parser) moveCursor(n Node) {
+	p.cursor = n
+	switch n.Type() {
+	case NodeIf, NodeRange, NodeBlock:
+		p.pushStack(n.(BranchAbleNode))
+	case NodeElse, NodeElseif:
+		p.upper = n.(BranchAbleNode)
+	case NodeEndIf, NodeEndRange, NodeEndBlock:
+		p.popStack()
+	}
 }
