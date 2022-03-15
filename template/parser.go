@@ -28,6 +28,9 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 		default:
 		}
 	}
+	if p.upper != p.doc {
+		panic("")
+	}
 	return p.doc
 }
 
