@@ -22,10 +22,12 @@ func (p *Parser) Parse(stream *TokenStream) *Document {
 		switch token.Type() {
 		case TYPE_TEXT:
 			p.parseText(token)
-		case TYPE_BLOCK_START, TYPE_BLOCK_END:
+		case TYPE_BLOCK_START:
 			p.parseBlock(token)
-		case TYPE_VAR_START, TYPE_VAR_END:
+		case TYPE_VAR_START:
+			p.parseVar(token)
 		default:
+			panic("")
 		}
 	}
 	if p.upper != p.doc {
@@ -38,34 +40,42 @@ func (p *Parser) parseText(token *Token) {
 	p.cursor = newTextNode(token.Value(), token.At)
 	p.upper.Append(p.cursor)
 }
+
 func (p *Parser) parseBlock(token *Token) {
-	if token.Type() == TYPE_BLOCK_START {
-		token = p.stream.Next()
-		switch token.Value() {
-		case "if":
-			p.parseIfNode(token)
-		case "elseif":
-			p.parseElseIfNode(token)
-		case "else":
-			p.parseElseNode(token)
-		case "endif":
-			p.parseEndIfNode(token)
-		case "set":
-			p.parseSetNode(token)
-		case "for":
-			p.parseForNode(token)
-		case "endfor":
-			p.parseEndForNode(token)
-		case "block":
-			p.parseBlockNode(token)
-		case "endblock":
-			p.parseEndBlockNode(token)
-		case "extend":
-			p.parseExtendNode(token)
-		case "include":
-			p.parseIncludeNode(token)
-		}
+	token = p.stream.Next()
+	switch token.Value() {
+	case "if":
+		p.parseIfNode(token)
+	case "elseif":
+		p.parseElseIfNode(token)
+	case "else":
+		p.parseElseNode(token)
+	case "endif":
+		p.parseEndIfNode(token)
+	case "set":
+		p.parseSetNode(token)
+	case "for":
+		p.parseForNode(token)
+	case "endfor":
+		p.parseEndForNode(token)
+	case "block":
+		p.parseBlockNode(token)
+	case "endblock":
+		p.parseEndBlockNode(token)
+	case "extend":
+		p.parseExtendNode(token)
+	case "include":
+		p.parseIncludeNode(token)
+	default:
+		panic("")
 	}
+}
+
+func (p *Parser) parseVar(token *Token) {
+	node := newValueNode(token.At)
+	p.evalExpression(node)
+	p.upper.Append(node)
+	p.moveCursor(node)
 }
 
 func (p *Parser) parseIncludeNode(token *Token) {
@@ -169,12 +179,23 @@ func (p *Parser) parseEndIfNode(token *Token) {
 
 func (p *Parser) evalExpression(n Node) {
 	// sb := &strings.Builder{}
+	// switch n.Type() {
+	// case NodeIf:
+	// 	for !p.stream.IsEOF() {
+	// 		token := p.stream.Next()
+	// 		switch token.Type() {
+	// 		case condition:
+
+	// 		}
+	// 	}
+	// }
+	// sb := &strings.Builder{}
+	// token := p.stream.Next()
 	// for token.Type() != TYPE_BLOCK_END {
 	// 	sb.WriteString(token.Value())
 	// 	token = p.stream.Next()
 	// }
-	// node.Expression = Expression(sb.String())
-	// p.cursor = node
+	// n.Expression = Expression(sb.String())
 }
 
 func (p *Parser) pushStack(n BranchAbleNode) {

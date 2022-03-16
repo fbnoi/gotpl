@@ -1,19 +1,21 @@
 package main
 
-import "fmt"
-
-type A interface{}
-
-type b struct{}
+import (
+	"go/ast"
+	"go/parser"
+	"go/token"
+	"log"
+	"path/filepath"
+)
 
 func main() {
-	x := &b{}
-	fmt.Printf("%p\n", x)
-	y := tointerface(x)
-	fmt.Printf("%p\n", y)
-	fmt.Printf("%p\n", y.(*b))
-}
-
-func tointerface(x interface{}) interface{} {
-	return x
+	fset := token.NewFileSet()
+	path, _ := filepath.Abs("./cmd/demo.go")
+	f, err := parser.ParseFile(fset, path, nil, parser.AllErrors)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	ast.Print(fset, f)
+	ast.BasicLit
 }

@@ -21,6 +21,7 @@ const (
 	NodeImport                   // An import action
 	NodeExtend                   // An extend action
 	NodeInclude                  // An include action
+	NodeDoc                      // A document
 )
 
 // NodeType identifies the type of a parse tree node.
@@ -100,6 +101,13 @@ type ValueNode struct {
 	Pos
 	NodeType
 	Expression
+}
+
+func newValueNode(pos int) *ValueNode {
+	return &ValueNode{
+		Pos:      Pos(pos),
+		NodeType: NodeValue,
+	}
 }
 
 func (v *ValueNode) String() string {
