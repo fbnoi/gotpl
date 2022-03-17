@@ -12,11 +12,12 @@ type TokenFilter struct {
 	tr       *Tree
 	cursor   Stmt
 	internel Stmt
+	stream   *template.TokenStream
 	stack    []Stmt
 }
 
 func (filter *TokenFilter) Filter(stream *template.TokenStream) *Tree {
-
+	filter.stream = stream
 	for !stream.IsEOF() {
 		token := stream.Next()
 		switch token.Type() {
@@ -210,5 +211,17 @@ func (filter *TokenFilter) pop() Stmt {
 }
 
 func (filter *TokenFilter) internelExpr() {
-
+	var (
+		eStack  []Expr
+		opStack []Expr
+	)
+	for !filter.stream.IsEOF() {
+		token := filter.stream.Next()
+		switch token.Type() {
+		case template.TYPE_STRING, template.TYPE_NUMBER:
+			eStack = append(opStack, &BasicLit{ValuePos: template.Pos(token.At), Kind: token.Type(), Value: token.Value()})
+		case template.TYPE_NAME:
+		case template.TYPE_OPERATOR:
+		}
+	}
 }

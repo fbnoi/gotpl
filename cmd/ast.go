@@ -42,11 +42,10 @@ type (
 		Value    string       // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
 	}
 
-	// A ParenExpr node represents a parenthesized expression.
-	ParenExpr struct {
-		Lparen template.Pos // position of "("
-		X      Expr         // parenthesized expression
-		Rparen template.Pos // position of ")"
+	OpLit struct {
+		OpPos template.Pos // literal position
+		Kind  int          // template.TYPE_OPERATOR, template.TYPE_NAME
+		Op    string       // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
 	}
 
 	// An IndexExpr node represents an expression followed by an index.
@@ -67,10 +66,10 @@ type (
 
 	// A BinaryExpr node represents a binary expression.
 	BinaryExpr struct {
-		X     Expr           // left operand
-		OpPos template.Pos   // position of Op
-		Op    template.Token // operator
-		Y     Expr           // right operand
+		X     Expr         // left operand
+		OpPos template.Pos // position of Op
+		Op    OpLit        // operator
+		Y     Expr         // right operand
 	}
 )
 
@@ -78,14 +77,14 @@ type (
 
 func (x *Ident) Pos() template.Pos      { return x.NamePos }
 func (x *BasicLit) Pos() template.Pos   { return x.ValuePos }
-func (x *ParenExpr) Pos() template.Pos  { return x.Lparen }
+func (x *OpLit) Pos() template.Pos      { return x.OpPos }
 func (x *IndexExpr) Pos() template.Pos  { return x.X.Pos() }
 func (x *CallExpr) Pos() template.Pos   { return x.Fun.Pos() }
 func (x *BinaryExpr) Pos() template.Pos { return x.X.Pos() }
 
 func (x *Ident) End() template.Pos      { return template.Pos(int(x.NamePos) + len(x.Name)) }
 func (x *BasicLit) End() template.Pos   { return template.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *ParenExpr) End() template.Pos  { return x.Rparen + 1 }
+func (x *OpLit) End() template.Pos      { return template.Pos(int(x.OpPos) + len(x.Op)) }
 func (x *IndexExpr) End() template.Pos  { return x.Rbrack + 1 }
 func (x *CallExpr) End() template.Pos   { return x.Rparen + 1 }
 func (x *BinaryExpr) End() template.Pos { return x.Y.End() }
@@ -95,7 +94,7 @@ func (x *BinaryExpr) End() template.Pos { return x.Y.End() }
 //
 func (*Ident) exprNode()      {}
 func (*BasicLit) exprNode()   {}
-func (*ParenExpr) exprNode()  {}
+func (*OpLit) exprNode()      {}
 func (*IndexExpr) exprNode()  {}
 func (*CallExpr) exprNode()   {}
 func (*BinaryExpr) exprNode() {}
