@@ -2,82 +2,71 @@ package main
 
 import (
 	"gotpl/template"
-	"strings"
 )
 
-// s           -> addExpress | boolExpr
-// addExpr     -> mulExpr {opt1 mulExpr}
-// boolExpr    -> mulExpr {opt3|opt4 mulExpr}
-// mulExpr     -> arg {opt2|opt5 arg}
-// arg         -> variable | automic | method
-// method      -> name{.name}({(variable|arg)}{,(variable|arg)})
-// variable    -> name{.name}
-// automic     -> number|string
-// opt1        -> + | -
-// opt2        -> * | / | %
-// opt3        -> > | < | >= | <=
-// opt4        -> and | or | not
-// opt5        -> []
-
-const (
-	TypeS = iota + 1
-	TypeAddExpr
-	TypeBoolExpr
-	TypeMulExpr
-	TypeArg
-	TypeMethod
-	TypeVariable
-	TypeAtomic
-	TypeOpt1
-	TypeOpt2
-	TypeOpt3
-	TypeOpt4
-	TypeOpt5
-)
-
-type Node struct {
-	Type      int
-	Signature strings.Builder
-	Pn        *Node
-	Ln        *Node
-	Rn        *Node
-	params    []*Node
+type Node interface {
+	Pos() template.Pos // position of first character belonging to the node
+	End() template.Pos // position of first character immediately after the node
 }
 
-type Lex struct {
-	Stream  *template.TokenStream
-	Current *Node
-	AST     *Node
+// All expression nodes implement the Expr interface.
+type Expr interface {
+	Node
+	exprNode()
 }
 
-func (l *Lex) S() *Node {
-	for !l.Stream.IsEOF() {
-		token := l.Stream.Next()
-		switch token.Type() {
-		case template.TYPE_NAME:
-			if l.Current.Type == TypeVariable {
-				l.Current.Signature.WriteString(token.Value())
-			} else {
-				panic("")
-			}
-		case template.TYPE_STRING:
-			if l.Current.Type == TypeMethod {
-				sb := strings.Builder{}
-				sb.WriteString(token.Value())
-				l.Current.params = append(l.Current.params, &Node{Signature: sb, Type: TypeArg})
-			} else {
-				panic("")
-			}
-		case template.TYPE_NUMBER:
-			switch l.Current.Type {
-			case TypeMethod:
-				sb := strings.Builder{}
-				sb.WriteString(token.Value())
-				node := &Node{Signature: sb, Type: TypeArg}
-				l.Current.params = append(l.Current.params, node)
-				l.Current = node
-			}
-		}
+// All statement nodes implement the Stmt interface.
+type Stmt interface {
+	Node
+	stmtNode()
+}
+
+// All statement nodes implement the Stmt interface.
+type Text interface {
+	Node
+	textNode()
+}
+
+type (
+	Ident struct {
+		NamePos template.Pos // identifier position
+		Name    string       // identifier name
 	}
-	return l.AST
-}
+
+	BasicLit struct {
+		ValuePos template.Pos // literal position
+		Kind     int          // template.TYPE_NUMBER, template.TYPE_STRING
+		Value    string       // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
+	}
+
+	// A ParenExpr node represents a parenthesized expression.
+	ParenExpr struct {
+		Lparen template.Pos // position of "("
+		X      Expr         // parenthesized expression
+		Rparen template.Pos // position of ")"
+	}
+
+	// An IndexExpr node represents an expression followed by an index.
+	IndexExpr struct {
+		X      Expr         // expression
+		Lbrack template.Pos // position of "["
+		Index  Expr         // index expression
+		Rbrack template.Pos // position of "]"
+	}
+
+	// A CallExpr node represents an expression followed by an argument list.
+	CallExpr struct {
+		Fun    Expr         // function expression
+		Lparen template.Pos // position of "("
+		Args   []Expr       // function arguments; or nil
+		Rparen template.Pos // position of ")"
+	}
+
+	// A BinaryExpr node represents a binary expression.
+	BinaryExpr struct {
+		X     Expr           // left operand
+		OpPos template.Pos   // position of Op
+		Op    template.Token // operator
+		Y     Expr           // right operand
+	}
+)

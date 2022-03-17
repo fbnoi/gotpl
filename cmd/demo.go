@@ -16,5 +16,16 @@ type Bar interface {
 
 // main方法
 func main() {
-	a := (1 + (3 + 4*5)) * 3
+	a := (1 + (3 + 4*5)) * 3 * add(4, 5)
+	if a == 5 {
+
+	}
+	c := []int{1, 2, 3}
+	for i, j := range c {
+
+	}
+}
+
+func add(a, b int) int {
+	return a + b
 }

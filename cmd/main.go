@@ -17,5 +17,5 @@ func main() {
 		return
 	}
 	ast.Print(fset, f)
-	ast.BasicLit
+	*ast.RangeStmt
 }

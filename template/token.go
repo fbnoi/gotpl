@@ -9,6 +9,7 @@ const (
 	TYPE_VAR_START
 	TYPE_BLOCK_END
 	TYPE_VAR_END
+	TYPE_METHOD
 	TYPE_NAME
 	TYPE_NUMBER
 	TYPE_STRING
@@ -55,6 +56,8 @@ func TypeToString(typ int) (name string) {
 		name = "TYPE_BLOCK_END"
 	case TYPE_VAR_END:
 		name = "TYPE_VAR_END"
+	case TYPE_METHOD:
+		name = "TYPE_METHOD"
 	case TYPE_NAME:
 		name = "TYPE_NAME"
 	case TYPE_NUMBER:
@@ -85,6 +88,8 @@ func TypeToEnglish(typ int) string {
 		return "end of statement block"
 	case TYPE_VAR_END:
 		return "end of print statement"
+	case TYPE_METHOD:
+		return "method"
 	case TYPE_NAME:
 		return "name"
 	case TYPE_NUMBER:
