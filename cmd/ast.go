@@ -21,11 +21,14 @@ type Stmt interface {
 	stmtNode()
 }
 
-// All statement nodes implement the Stmt interface.
+// All textext nodes implement the Text interface.
 type Text interface {
 	Node
 	textNode()
 }
+
+// ----------------------------------------------------------------------------
+// Expressions
 
 type (
 	Ident struct {
@@ -68,5 +71,65 @@ type (
 		OpPos template.Pos   // position of Op
 		Op    template.Token // operator
 		Y     Expr           // right operand
+	}
+)
+
+// Pos and End implementations for expression/type nodes.
+
+func (x *Ident) Pos() template.Pos      { return x.NamePos }
+func (x *BasicLit) Pos() template.Pos   { return x.ValuePos }
+func (x *ParenExpr) Pos() template.Pos  { return x.Lparen }
+func (x *IndexExpr) Pos() template.Pos  { return x.X.Pos() }
+func (x *CallExpr) Pos() template.Pos   { return x.Fun.Pos() }
+func (x *BinaryExpr) Pos() template.Pos { return x.X.Pos() }
+
+func (x *Ident) End() template.Pos      { return template.Pos(int(x.NamePos) + len(x.Name)) }
+func (x *BasicLit) End() template.Pos   { return template.Pos(int(x.ValuePos) + len(x.Value)) }
+func (x *ParenExpr) End() template.Pos  { return x.Rparen + 1 }
+func (x *IndexExpr) End() template.Pos  { return x.Rbrack + 1 }
+func (x *CallExpr) End() template.Pos   { return x.Rparen + 1 }
+func (x *BinaryExpr) End() template.Pos { return x.Y.End() }
+
+// exprNode() ensures that only expression/type nodes can be
+// assigned to an Expr.
+//
+func (*Ident) exprNode()      {}
+func (*BasicLit) exprNode()   {}
+func (*ParenExpr) exprNode()  {}
+func (*IndexExpr) exprNode()  {}
+func (*CallExpr) exprNode()   {}
+func (*BinaryExpr) exprNode() {}
+
+// ----------------------------------------------------------------------------
+// Statements
+
+// A statement is represented by a tree consisting of one
+// or more of the following concrete statement nodes.
+//
+type (
+	// An AssignStmt node represents an assignment or
+	// a short variable declaration.
+	//
+	AssignStmt struct {
+		Lhs    []Expr
+		TokPos template.Pos   // position of Tok
+		Tok    template.Token // assignment token, DEFINE
+		Rhs    []Expr
+	}
+
+	// An IfStmt node represents an if statement.
+	IfStmt struct {
+		If   template.Pos // position of "if" keyword
+		Init Stmt         // initialization statement; or nil
+		Cond Expr         // condition
+		Else Stmt         // else branch; or nil
+	}
+
+	// A ForStmt represents a for statement.
+	ForStmt struct {
+		For  template.Pos // position of "for" keyword
+		Init Stmt         // initialization statement; or nil
+		Cond Expr         // condition; or nil
+		Post Stmt         // post iteration statement; or nil
 	}
 )

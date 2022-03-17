@@ -21,7 +21,11 @@ func main() {
 
 	}
 	c := []int{1, 2, 3}
-	for i, j := range c {
+	if 1 == 1 {
+
+	} else if 2 == 2 {
+
+	} else {
 
 	}
 }

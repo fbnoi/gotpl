@@ -17,5 +17,4 @@ func main() {
 		return
 	}
 	ast.Print(fset, f)
-	*ast.RangeStmt
 }
