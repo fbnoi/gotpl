@@ -35,6 +35,9 @@ func (t NodeType) Type() NodeType {
 
 // Pos represents a byte position in the original input text from which
 // this template was parsed.
+
+const NoPos Pos = 0
+
 type Pos int
 
 func (p Pos) Position() Pos {

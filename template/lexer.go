@@ -40,10 +40,8 @@ var (
 	reg_whitespace = regexp.MustCompile(`^\s+`)
 	// +-*%&^|><=
 	reg_operator = regexp.MustCompile(`[\+\-\&*%\^><=:]{1,3}|(and)|(or)`)
-	// method
-	reg_method = regexp.MustCompile(`[a-zA-Z_\x7f-\xff]+(?:(?:\.[a-zA-Z0-9_\x7f-\xff]+)*|[a-zA-Z0-9_\x7f-\xff]*)?\(`)
 	// name
-	reg_name = regexp.MustCompile(`[a-zA-Z_\x7f-\xff]+(?:\.[a-zA-Z0-9_\x7f-\xff]+)*|[a-zA-Z0-9_\x7f-\xff]*`)
+	reg_name = regexp.MustCompile(`[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(\.[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*`)
 	// number
 	reg_number = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)?([Ee][\+\-][0-9]+)?`)
 	// punctuation
@@ -184,11 +182,6 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) {
 		// operator
 		if subp := lex.findStringIndex(reg_operator, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
 			lex.pushToken(TYPE_OPERATOR, lex.code[lex.cursor:subp[1]])
-			lex.moveCursor(subp[1])
-
-			// method
-		} else if subp := lex.findStringIndex(reg_method, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
-			lex.pushToken(TYPE_METHOD, lex.code[lex.cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// name
