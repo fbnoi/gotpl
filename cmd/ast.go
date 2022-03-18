@@ -124,8 +124,7 @@ type (
 	}
 
 	ValueStmt struct {
-		TokPos template.Pos // position of Tok
-		Tok    Expr         // assignment expr
+		Tok Expr // assignment expr
 	}
 
 	// An AssignStmt node represents an assignment or
@@ -179,7 +178,7 @@ type (
 
 // Pos and End implementations for statement nodes.
 func (s *TextStmt) Pos() template.Pos   { return s.Text.Pos() }
-func (s *ValueStmt) Pos() template.Pos  { return s.TokPos }
+func (s *ValueStmt) Pos() template.Pos  { return s.Tok.Pos() }
 func (s *AssignStmt) Pos() template.Pos { return s.Lh.Pos() }
 func (s *SectionStmt) Pos() template.Pos {
 	if len(s.List) > 0 {
