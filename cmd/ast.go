@@ -131,9 +131,9 @@ type (
 	// a short variable declaration.
 	//
 	AssignStmt struct {
-		Lh     Expr
-		TokPos template.Pos   // position of Tok
-		Tok    template.Token // assignment token, DEFINE
+		Lh     Expr         // Ident
+		TokPos template.Pos // position of Tok
+		Tok    string       // assignment token, DEFINE
 		Rh     Expr
 	}
 
@@ -161,11 +161,11 @@ type (
 
 	// A RangeStmt represents a for statement with a range clause.
 	RangeStmt struct {
-		For        template.Pos   // position of "for" keyword
-		Key, Value Expr           // Key, Value may be nil
-		TokPos     template.Pos   // position of Tok; invalid if Key == nil
-		Tok        template.Token // ILLEGAL if Key == nil, ASSIGN, DEFINE
-		X          Expr           // value to range over
+		For        template.Pos // position of "for" keyword
+		Key, Value Expr         // Key, Value may be nil
+		TokPos     template.Pos // position of Tok; invalid if Key == nil
+		Tok        string       // ILLEGAL if Key == nil, ASSIGN, DEFINE
+		X          Expr         // value to range over
 		Body       *SectionStmt
 	}
 

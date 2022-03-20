@@ -41,58 +41,15 @@ func (filter *TokenFilter) Filter(stream *template.TokenStream) *Tree {
 			case "endfor":
 				filter.popFor()
 			case "range":
-				rs := &ForStmt{For: template.Pos(token.At)}
-				filter.internel = rs
-				// filter.internelExpr()
-				if filter.cursor == nil {
-					filter.tr.List = append(filter.tr.List, rs)
-				} else if st, ok := filter.cursor.(*IfStmt); ok {
-					st.Body.List = append(st.Body.List, rs)
-				} else if st, ok := filter.cursor.(*RangeStmt); ok {
-					st.Body.List = append(st.Body.List, rs)
-				} else if st, ok := filter.cursor.(*ForStmt); ok {
-					st.Body.List = append(st.Body.List, rs)
-				} else {
-					panic("")
-				}
-				filter.cursor = rs
-				filter.stack = append(filter.stack, rs)
+				filter.parseRange(token)
 			case "endrange":
 				filter.popRange()
 			case "block":
-				bs := &BlockStmt{}
-				filter.internel = bs
-				// filter.internelExpr()
-				if filter.cursor == nil {
-					filter.tr.List = append(filter.tr.List, bs)
-				} else if st, ok := filter.cursor.(*IfStmt); ok {
-					st.Body.List = append(st.Body.List, bs)
-				} else if st, ok := filter.cursor.(*RangeStmt); ok {
-					st.Body.List = append(st.Body.List, bs)
-				} else if st, ok := filter.cursor.(*ForStmt); ok {
-					st.Body.List = append(st.Body.List, bs)
-				} else {
-					panic("")
-				}
-				filter.cursor = bs
-				filter.stack = append(filter.stack, bs)
+				filter.parseBlock(stream.Next())
 			case "endblock":
 				filter.popBlock()
 			case "set":
-				ss := &AssignStmt{}
-				filter.internel = ss
-				// filter.internelExpr()
-				if filter.cursor == nil {
-					filter.tr.List = append(filter.tr.List, ss)
-				} else if st, ok := filter.cursor.(*IfStmt); ok {
-					st.Body.List = append(st.Body.List, ss)
-				} else if st, ok := filter.cursor.(*RangeStmt); ok {
-					st.Body.List = append(st.Body.List, ss)
-				} else if st, ok := filter.cursor.(*ForStmt); ok {
-					st.Body.List = append(st.Body.List, ss)
-				} else {
-					panic("")
-				}
+				filter.parseSet(token)
 			}
 		}
 	}
@@ -110,8 +67,9 @@ func (filter *TokenFilter) parseVar(token *template.Token) {
 	for !filter.stream.IsEOF() {
 		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
 			ts = append(ts, token)
+		} else {
+			break
 		}
-		break
 	}
 	vs.Tok = filter.internelExpr(ts)
 	filter.append(vs)
@@ -123,8 +81,9 @@ func (filter *TokenFilter) parseIf(token *template.Token) {
 	for !filter.stream.IsEOF() {
 		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
 			ts = append(ts, token)
+		} else {
+			break
 		}
-		break
 	}
 	is.Cond = filter.internelExpr(ts)
 	filter.append(is)
@@ -148,8 +107,9 @@ func (filter *TokenFilter) parseElseIf(token *template.Token) {
 	for !filter.stream.IsEOF() {
 		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
 			ts = append(ts, token)
+		} else {
+			break
 		}
-		break
 	}
 	efs.Cond = filter.internelExpr(ts)
 	if st, ok := filter.cursor.(*IfStmt); ok {
@@ -163,17 +123,24 @@ func (filter *TokenFilter) parseElseIf(token *template.Token) {
 func (filter *TokenFilter) parseFor(token *template.Token) {
 	fs := &ForStmt{For: template.Pos(token.At)}
 	filter.internel = fs
+	var tss [][]*template.Token
 	for !filter.stream.IsEOF() {
 		var ts []*template.Token
 		token := filter.stream.Next()
 		for token.Value() != ";" && token.Type() != template.TYPE_EOF {
 			ts = append(ts, token)
 		}
-		filter.internelExpr(ts)
+		tss = append(tss, ts)
+	}
+	if len(tss) == 3 {
+		fs.Init, fs.Cond, fs.Post = filter.parseAssignStmt(tss[0]), filter.internelExpr(tss[1]), filter.parseAssignStmt(tss[2])
+	} else if len(tss) == 1 {
+		fs.Cond = filter.internelExpr(tss[0])
+	} else {
+		panic("")
 	}
 	filter.append(fs)
-	filter.cursor = fs
-	filter.stack = append(filter.stack, fs)
+	filter.push(fs)
 }
 
 func (filter *TokenFilter) parseRange(token *template.Token) {
@@ -191,19 +158,52 @@ func (filter *TokenFilter) parseRange(token *template.Token) {
 		rs.Value = &Ident{NamePos: template.Pos(valueToken.At), Name: valueToken.Value()}
 	}
 
-	if filter.cursor == nil {
-		filter.tr.List = append(filter.tr.List, rs)
-	} else if st, ok := filter.cursor.(*IfStmt); ok {
-		st.Body.List = append(st.Body.List, rs)
-	} else if st, ok := filter.cursor.(*RangeStmt); ok {
-		st.Body.List = append(st.Body.List, rs)
-	} else if st, ok := filter.cursor.(*ForStmt); ok {
-		st.Body.List = append(st.Body.List, rs)
-	} else {
+	filter.append(rs)
+	filter.push(rs)
+}
+
+func (filter *TokenFilter) parseBlock(token *template.Token) {
+	if token.Type() != template.TYPE_NAME {
 		panic("")
 	}
-	filter.cursor = rs
-	filter.stack = append(filter.stack, rs)
+	bs := &BlockStmt{Name: token.Value()}
+	filter.append(bs)
+	filter.push(bs)
+}
+
+func (filter *TokenFilter) parseSet(token *template.Token) {
+	var ts []*template.Token
+	for !filter.stream.IsEOF() {
+		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
+			ts = append(ts, token)
+		} else {
+			break
+		}
+	}
+	ss := filter.parseAssignStmt(ts)
+	filter.append(ss)
+}
+
+func (filter *TokenFilter) parseAssignStmt(ts []*template.Token) *AssignStmt {
+	switch {
+	case len(ts) == 0:
+		return nil
+	case len(ts) >= 2:
+		token := ts[0]
+		if token.Type() != template.TYPE_NAME {
+			panic("")
+		}
+		ss := &AssignStmt{Lh: &Ident{NamePos: template.Pos(token.At), Name: token.Value()}}
+		tok := ts[1]
+		ss.TokPos, ss.Tok = template.Pos(tok.At), tok.Value()
+		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
+			return ss
+		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
+			ss.Rh = filter.internelExpr(ts[2:])
+			return ss
+		}
+	}
+	panic("")
 }
 
 func (filter *TokenFilter) append(s Stmt) {
