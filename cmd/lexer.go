@@ -375,6 +375,7 @@ func (ew *ExprWraper) Wrap() Expr {
 				if op := ew.peekOp(); op.Type() == template.TYPE_NAME {
 					op = ew.popOp()
 				}
+			case ",":
 			default:
 				panic("")
 			}

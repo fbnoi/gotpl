@@ -45,7 +45,7 @@ var (
 	// number
 	reg_number = regexp.MustCompile(`[0-9]+(?:\.[0-9]+)?([Ee][\+\-][0-9]+)?`)
 	// punctuation
-	reg_punctuation   = regexp.MustCompile(`[\(\)\[\]\{\}\?\:;\.,\|]`)
+	reg_punctuation   = regexp.MustCompile(`[\(\)\[\]\{\}\?\:;,\|]`)
 	reg_bracket_open  = regexp.MustCompile(`[\{\[\(]`)
 	reg_bracket_close = regexp.MustCompile(`[\}\]\)]`)
 	// string
