@@ -283,60 +283,179 @@ func (filter *TokenFilter) internelExpr(ts []*template.Token) Expr {
 
 	var (
 		eStack  []Expr
-		opStack []Expr
+		opStack []*template.Token
+		expr    Expr
 		l       = len(ts)
 	)
 	for i := 0; i < l; i++ {
 		token := ts[i]
 		switch token.Type() {
 		case template.TYPE_STRING, template.TYPE_NUMBER:
-			eStack = append(eStack, &BasicLit{ValuePos: template.Pos(token.At), Kind: token.Type(), Value: token.Value()})
+			eStack = append(eStack, &BasicLit{ValuePos: template.Pos(token.At), Value: token.Value()})
 		case template.TYPE_NAME:
 			if i+1 < l {
 				p := ts[i+1]
 				if p.Value() == "(" {
-					fun := &Ident{NamePos: template.Pos(token.At), Name: token.Value()}
-					opStack = append(opStack, &CallExpr{Fun: fun, Lparen: template.Pos(token.At)})
+					opStack = append(opStack, token)
 					continue
 				}
 			}
 			eStack = append(eStack, &Ident{NamePos: template.Pos(token.At), Name: token.Value()})
 		case template.TYPE_OPERATOR:
-
+			switch token.Value() {
+			case "+", "-", "*", "/", "%", "(", "[":
+				if comparePriority(token, opStack[len(opStack)-1]) {
+					opStack = append(opStack, token)
+				} else {
+					if len(eStack) >= 2 {
+						et1 := eStack[len(eStack)-1]
+						et2 := eStack[len(eStack)-2]
+						eStack = eStack[:len(eStack)-2]
+						expr := waper(token, et1, et2)
+						eStack = append(eStack, expr)
+					}
+					panic("")
+				}
+			case "]":
+				op := opStack[len(opStack)-1]
+				opStack = opStack[:len(opStack)-2]
+				et1 := eStack[len(eStack)-1]
+				et2 := eStack[len(eStack)-2]
+				eStack = eStack[:len(eStack)-2]
+				expr := waper(op, et1, et2)
+				eStack = append(eStack, expr)
+			default:
+				panic("")
+			}
 		}
 	}
 	return nil
 }
 
-type ExprStack struct {
+type ExprWraper struct {
+	stream  []*template.Token
 	eStack  []Expr
-	opStack []Expr
+	opStack []*template.Token
 }
 
-func (es *ExprStack) Push(e Expr) {
-	switch x := e.(type) {
-	case *BasicLit:
-		x.exprNode()
+func (ew *ExprWraper) Wrap() Expr {
+	for i := 0; i < len(ew.stream); i++ {
+		token := ew.stream[i]
+		switch token.Type() {
+		case template.TYPE_STRING, template.TYPE_NUMBER:
+			ew.pushExpr(&BasicLit{ValuePos: template.Pos(token.At), Value: token.Value()})
+		case template.TYPE_NAME:
+			if i+1 < len(ew.stream) {
+				p := ew.stream[i+1]
+				if p.Value() == "(" {
+					ew.pushOp(token)
+					continue
+				}
+			}
+			ew.pushExpr(&Ident{NamePos: template.Pos(token.At), Name: token.Value()})
+		case template.TYPE_OPERATOR:
+			switch token.Value() {
+			case "+", "-", "*", "/", "%", "(", "[":
+				if comparePriority(token, ew.peekOp()) {
+					ew.pushOp(token)
+				} else {
+					ew.revert(token)
+				}
+			case "]":
+				var op *template.Token
+				for op = ew.popOp(); op.Value() != "["; op = ew.popOp() {
+					ew.revert(op)
+				}
+				ew.revert(op)
+			case ")":
+				var op *template.Token
+				for op = ew.popOp(); op.Value() != "("; op = ew.popOp() {
+					ew.revert(op)
+				}
+				if op := ew.peekOp(); op.Type() == template.TYPE_NAME {
+					op = ew.popOp()
+				}
+			default:
+				panic("")
+			}
+		}
 	}
+	return nil
 }
 
-func (es *ExprStack) pushEStack(e Expr) {
-	es.eStack = append(es.eStack, e)
+func (ew *ExprWraper) revert(op *template.Token) {
+	ew.pushExpr(waper(op, ew.popExpr(), ew.popExpr()))
 }
 
-func (es *ExprStack) pushOpStack(e Expr) {
-	es.opStack = append(es.opStack, e)
+func (ew *ExprWraper) peekExpr() Expr {
+	if len(ew.eStack) == 0 {
+		panic("")
+	}
+	return ew.eStack[len(ew.eStack)-1]
 }
 
-func (es *ExprStack) comparePriority(e Expr) bool {
-	// if
-	// switch op := e.(type) {
-	// case *CallExpr:
-	// 	return false
-	// case *OpLit:
-	// 	if p1, ok := opPriority[op.Op]; ok {
-	// 		op2 := es.opStack[len(es.opStack)-1]
+func (ew *ExprWraper) pushExpr(e Expr) {
+	ew.eStack = append(ew.eStack, e)
+}
 
-	// 	}
-	// }
+func (ew *ExprWraper) popExpr() Expr {
+	if len(ew.eStack) == 0 {
+		panic("")
+	}
+	t := ew.eStack[len(ew.eStack)-1]
+	ew.eStack = ew.eStack[:len(ew.eStack)-1]
+	return t
+}
+
+func (ew *ExprWraper) peekOp() *template.Token {
+	if len(ew.opStack) == 0 {
+		panic("")
+	}
+	return ew.opStack[len(ew.opStack)-1]
+}
+
+func (ew *ExprWraper) pushOp(op *template.Token) {
+	ew.opStack = append(ew.opStack, op)
+}
+
+func (ew *ExprWraper) popOp() (t *template.Token) {
+	if len(ew.opStack) == 0 {
+		panic("")
+	}
+	t = ew.opStack[len(ew.opStack)-1]
+	ew.opStack = ew.opStack[:len(ew.opStack)-1]
+	return
+}
+
+func waper(op *template.Token, x1, x2 Expr) Expr {
+	switch op.Value() {
+	case "+", "-", "*", "/", "%":
+		return &BinaryExpr{X: x1, Op: OpLit{OpPos: template.Pos(op.At), Op: op.Value()}, Y: x2}
+	case "[":
+		return &IndexExpr{X: x1, Index: x2}
+	}
+	panic("")
+}
+
+func comparePriority(t1, t2 *template.Token) bool {
+	if t1.Type() == template.TYPE_NAME {
+		return true
+	}
+	if t1.Value() == "(" || t1.Value() == "[" {
+		return true
+	}
+
+	if t2.Type() == template.TYPE_NAME {
+		return false
+	}
+
+	if t2.Value() == "(" || t2.Value() == "[" {
+		return false
+	}
+	p1, ok1 := opPriority[t1.Value()]
+	p2, ok2 := opPriority[t2.Value()]
+	if ok1 && ok2 {
+		return p1 > p2
+	}
+	panic("")
 }

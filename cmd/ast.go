@@ -49,10 +49,13 @@ type (
 
 	// An IndexExpr node represents an expression followed by an index.
 	IndexExpr struct {
-		X      Expr         // expression
-		Lbrack template.Pos // position of "["
-		Index  Expr         // index expression
-		Rbrack template.Pos // position of "]"
+		X     Expr // expression
+		Index Expr // index expression
+	}
+
+	ParenExpr struct {
+		Kind  int    // template.TYPE_OPERATOR
+		Paren string // literal paren; (, )
 	}
 
 	// A CallExpr node represents an expression followed by an argument list.
@@ -65,10 +68,9 @@ type (
 
 	// A BinaryExpr node represents a binary expression.
 	BinaryExpr struct {
-		X     Expr         // left operand
-		OpPos template.Pos // position of Op
-		Op    OpLit        // operator
-		Y     Expr         // right operand
+		X  Expr  // left operand
+		Op OpLit // operator
+		Y  Expr  // right operand
 	}
 )
 
@@ -84,7 +86,7 @@ func (x *BinaryExpr) Pos() template.Pos { return x.X.Pos() }
 func (x *Ident) End() template.Pos      { return template.Pos(int(x.NamePos) + len(x.Name)) }
 func (x *BasicLit) End() template.Pos   { return template.Pos(int(x.ValuePos) + len(x.Value)) }
 func (x *OpLit) End() template.Pos      { return template.Pos(int(x.OpPos) + len(x.Op)) }
-func (x *IndexExpr) End() template.Pos  { return x.Rbrack + 1 }
+func (x *IndexExpr) End() template.Pos  { return x.Index.End() + 2 }
 func (x *CallExpr) End() template.Pos   { return x.Rparen + 1 }
 func (x *BinaryExpr) End() template.Pos { return x.Y.End() }
 
