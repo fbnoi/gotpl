@@ -44,8 +44,7 @@ type (
 
 	OpLit struct {
 		OpPos template.Pos // literal position
-		Kind  int          // template.TYPE_OPERATOR, template.TYPE_NAME
-		Op    string       // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
+		Op    string       // literal string; e.g. + - * /
 	}
 
 	// An IndexExpr node represents an expression followed by an index.

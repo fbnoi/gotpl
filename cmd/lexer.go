@@ -4,16 +4,22 @@ import (
 	"gotpl/template"
 )
 
+var opPriority = map[string]int{
+	"+": 0, "%": 5,
+	"-": 0, "[": 10,
+	"*": 5,
+	"/": 5,
+}
+
 type Tree struct {
 	List []Node
 }
 
 type TokenFilter struct {
-	tr       *Tree
-	cursor   Stmt
-	internel Stmt
-	stream   *template.TokenStream
-	stack    []Stmt
+	tr     *Tree
+	cursor Stmt
+	stream *template.TokenStream
+	stack  []Stmt
 }
 
 func (filter *TokenFilter) Filter(stream *template.TokenStream) *Tree {
@@ -102,7 +108,6 @@ func (filter *TokenFilter) parseElse(token *template.Token) {
 
 func (filter *TokenFilter) parseElseIf(token *template.Token) {
 	efs := &IfStmt{}
-	filter.internel = efs
 	var ts []*template.Token
 	for !filter.stream.IsEOF() {
 		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
@@ -122,7 +127,6 @@ func (filter *TokenFilter) parseElseIf(token *template.Token) {
 
 func (filter *TokenFilter) parseFor(token *template.Token) {
 	fs := &ForStmt{For: template.Pos(token.At)}
-	filter.internel = fs
 	var tss [][]*template.Token
 	for !filter.stream.IsEOF() {
 		var ts []*template.Token
@@ -145,7 +149,6 @@ func (filter *TokenFilter) parseFor(token *template.Token) {
 
 func (filter *TokenFilter) parseRange(token *template.Token) {
 	rs := &RangeStmt{For: template.Pos(token.At)}
-	filter.internel = rs
 	keyToken := filter.stream.Next()
 	rs.Key = &Ident{NamePos: template.Pos(keyToken.At), Name: keyToken.Value()}
 	valueToken := filter.stream.Next()
@@ -276,20 +279,64 @@ func (filter *TokenFilter) push(s Stmt) {
 	filter.cursor = s
 }
 
-func (filter *TokenFilter) internelExpr([]*template.Token) Expr {
+func (filter *TokenFilter) internelExpr(ts []*template.Token) Expr {
+
+	var (
+		eStack  []Expr
+		opStack []Expr
+		l       = len(ts)
+	)
+	for i := 0; i < l; i++ {
+		token := ts[i]
+		switch token.Type() {
+		case template.TYPE_STRING, template.TYPE_NUMBER:
+			eStack = append(eStack, &BasicLit{ValuePos: template.Pos(token.At), Kind: token.Type(), Value: token.Value()})
+		case template.TYPE_NAME:
+			if i+1 < l {
+				p := ts[i+1]
+				if p.Value() == "(" {
+					fun := &Ident{NamePos: template.Pos(token.At), Name: token.Value()}
+					opStack = append(opStack, &CallExpr{Fun: fun, Lparen: template.Pos(token.At)})
+					continue
+				}
+			}
+			eStack = append(eStack, &Ident{NamePos: template.Pos(token.At), Name: token.Value()})
+		case template.TYPE_OPERATOR:
+
+		}
+	}
 	return nil
-	// var (
-	// 	eStack  []Expr
-	// 	opStack []Expr
-	// )
-	// for !filter.stream.IsEOF() {
-	// 	token := filter.stream.Next()
-	// 	switch token.Type() {
-	// 	case template.TYPE_STRING, template.TYPE_NUMBER:
-	// 		eStack = append(opStack, &BasicLit{ValuePos: template.Pos(token.At), Kind: token.Type(), Value: token.Value()})
-	// 	case template.TYPE_NAME:
-	// 		p := filter.stream.Peek()
-	// 	case template.TYPE_OPERATOR:
+}
+
+type ExprStack struct {
+	eStack  []Expr
+	opStack []Expr
+}
+
+func (es *ExprStack) Push(e Expr) {
+	switch x := e.(type) {
+	case *BasicLit:
+		x.exprNode()
+	}
+}
+
+func (es *ExprStack) pushEStack(e Expr) {
+	es.eStack = append(es.eStack, e)
+}
+
+func (es *ExprStack) pushOpStack(e Expr) {
+	es.opStack = append(es.opStack, e)
+}
+
+func (es *ExprStack) comparePriority(e Expr) bool {
+	// if
+	// switch op := e.(type) {
+	// case *CallExpr:
+	// 	return false
+	// case *OpLit:
+	// 	if p1, ok := opPriority[op.Op]; ok {
+	// 		op2 := es.opStack[len(es.opStack)-1]
+
 	// 	}
 	// }
 }
