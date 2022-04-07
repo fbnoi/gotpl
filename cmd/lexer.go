@@ -6,8 +6,8 @@ import (
 
 var opPriority = map[string]int{
 	"+": 0, "%": 5,
-	"-": 0, "[": 10,
-	"*": 5,
+	"-": 0, ",": 10,
+	"*": 5, "[": 15,
 	"/": 5,
 }
 
@@ -281,54 +281,6 @@ func (filter *TokenFilter) push(s Stmt) {
 
 func (filter *TokenFilter) internelExpr(ts []*template.Token) Expr {
 
-	var (
-		eStack  []Expr
-		opStack []*template.Token
-		expr    Expr
-		l       = len(ts)
-	)
-	for i := 0; i < l; i++ {
-		token := ts[i]
-		switch token.Type() {
-		case template.TYPE_STRING, template.TYPE_NUMBER:
-			eStack = append(eStack, &BasicLit{ValuePos: template.Pos(token.At), Value: token.Value()})
-		case template.TYPE_NAME:
-			if i+1 < l {
-				p := ts[i+1]
-				if p.Value() == "(" {
-					opStack = append(opStack, token)
-					continue
-				}
-			}
-			eStack = append(eStack, &Ident{NamePos: template.Pos(token.At), Name: token.Value()})
-		case template.TYPE_OPERATOR:
-			switch token.Value() {
-			case "+", "-", "*", "/", "%", "(", "[":
-				if comparePriority(token, opStack[len(opStack)-1]) {
-					opStack = append(opStack, token)
-				} else {
-					if len(eStack) >= 2 {
-						et1 := eStack[len(eStack)-1]
-						et2 := eStack[len(eStack)-2]
-						eStack = eStack[:len(eStack)-2]
-						expr := waper(token, et1, et2)
-						eStack = append(eStack, expr)
-					}
-					panic("")
-				}
-			case "]":
-				op := opStack[len(opStack)-1]
-				opStack = opStack[:len(opStack)-2]
-				et1 := eStack[len(eStack)-1]
-				et2 := eStack[len(eStack)-2]
-				eStack = eStack[:len(eStack)-2]
-				expr := waper(op, et1, et2)
-				eStack = append(eStack, expr)
-			default:
-				panic("")
-			}
-		}
-	}
 	return nil
 }
 
@@ -355,7 +307,7 @@ func (ew *ExprWraper) Wrap() Expr {
 			ew.pushExpr(&Ident{NamePos: template.Pos(token.At), Name: token.Value()})
 		case template.TYPE_OPERATOR:
 			switch token.Value() {
-			case "+", "-", "*", "/", "%", "(", "[":
+			case "+", "-", "*", "/", "%", "(", "[", ",":
 				if comparePriority(token, ew.peekOp()) {
 					ew.pushOp(token)
 				} else {
@@ -374,8 +326,9 @@ func (ew *ExprWraper) Wrap() Expr {
 				}
 				if op := ew.peekOp(); op.Type() == template.TYPE_NAME {
 					op = ew.popOp()
+					ew.revert(op)
 				}
-			case ",":
+
 			default:
 				panic("")
 			}
@@ -385,7 +338,20 @@ func (ew *ExprWraper) Wrap() Expr {
 }
 
 func (ew *ExprWraper) revert(op *template.Token) {
-	ew.pushExpr(waper(op, ew.popExpr(), ew.popExpr()))
+	if op.Type() == template.TYPE_NAME {
+		fun := &Ident{NamePos: template.Pos(op.At), Name: op.Value()}
+		call := &CallExpr{Fun: fun, Lparen: template.Pos(op.At + 1)}
+		if _, ok := ew.peekExpr().(*ArgsExpr); ok {
+			args := ew.popExpr().(*ArgsExpr)
+			call.Args = args
+			call.Rparen = args.End() + 1
+		} else {
+			call.Rparen = call.Lparen + 1
+		}
+		ew.pushExpr(call)
+		return
+	}
+	ew.pushExpr(waperBinary(op, ew.popExpr(), ew.popExpr()))
 }
 
 func (ew *ExprWraper) peekExpr() Expr {
@@ -428,14 +394,30 @@ func (ew *ExprWraper) popOp() (t *template.Token) {
 	return
 }
 
-func waper(op *template.Token, x1, x2 Expr) Expr {
-	switch op.Value() {
-	case "+", "-", "*", "/", "%":
-		return &BinaryExpr{X: x1, Op: OpLit{OpPos: template.Pos(op.At), Op: op.Value()}, Y: x2}
-	case "[":
-		return &IndexExpr{X: x1, Index: x2}
+func waperBinary(op *template.Token, x1, x2 Expr) Expr {
+	switch op.Type() {
+	case template.TYPE_NAME:
+		fn := &Ident{NamePos: template.Pos(op.At), Name: op.Value()}
+		return &CallExpr{Fun: fn, Lparen: template.Pos(op.At + 1)}
+	case template.TYPE_OPERATOR:
+		switch op.Value() {
+		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=":
+			return &BinaryExpr{X: x2, Op: OpLit{OpPos: template.Pos(op.At), Op: op.Value()}, Y: x1}
+		case "[":
+			return &IndexExpr{X: x1, Index: x2}
+		case ",":
+			if arg, ok := x1.(*ArgsExpr); ok {
+				arg.List = append(arg.List, x2)
+				return arg
+			}
+			return &ArgsExpr{List: []Expr{x1, x2}}
+		default:
+			panic("")
+		}
+	default:
+		panic("")
+
 	}
-	panic("")
 }
 
 func comparePriority(t1, t2 *template.Token) bool {

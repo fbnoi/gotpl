@@ -62,7 +62,7 @@ type (
 	CallExpr struct {
 		Fun    Expr         // function expression
 		Lparen template.Pos // position of "("
-		Args   ArgsExpr     // function arguments; or nil
+		Args   *ArgsExpr    // function arguments; or nil
 		Rparen template.Pos // position of ")"
 	}
 
@@ -114,6 +114,7 @@ func (*BasicLit) exprNode()   {}
 func (*OpLit) exprNode()      {}
 func (*IndexExpr) exprNode()  {}
 func (*CallExpr) exprNode()   {}
+func (*ArgsExpr) exprNode()   {}
 func (*BinaryExpr) exprNode() {}
 
 // ----------------------------------------------------------------------------
