@@ -27,14 +27,14 @@ func main() {
 	<title>{{ title }}</title>
 </head>
 <body>
-	{% set a.c[]=2 %}
+	{% set a = b.c(d.e, 1+ d.f) %}
 </body>
 </html>
 	`
 
 	lex := &template.Lexer{}
 	stream := lex.Tokenize(&template.Source{Code: html})
-	for !stream.IsEOF() {
-		fmt.Println(stream.Next().String())
-	}
+	filter := &TokenFilter{tr: &Tree{}}
+	tree := filter.Filter(stream)
+	fmt.Println(tree)
 }

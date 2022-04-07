@@ -280,8 +280,9 @@ func (filter *TokenFilter) push(s Stmt) {
 }
 
 func (filter *TokenFilter) internelExpr(ts []*template.Token) Expr {
+	wrapper := &ExprWraper{stream: ts}
 
-	return nil
+	return wrapper.Wrap()
 }
 
 type ExprWraper struct {
