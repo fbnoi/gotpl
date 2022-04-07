@@ -62,8 +62,12 @@ type (
 	CallExpr struct {
 		Fun    Expr         // function expression
 		Lparen template.Pos // position of "("
-		Args   []Expr       // function arguments; or nil
+		Args   ArgsExpr     // function arguments; or nil
 		Rparen template.Pos // position of ")"
+	}
+
+	ArgsExpr struct {
+		List []Expr // function arguments
 	}
 
 	// A BinaryExpr node represents a binary expression.
@@ -76,18 +80,30 @@ type (
 
 // Pos and End implementations for expression/type nodes.
 
-func (x *Ident) Pos() template.Pos      { return x.NamePos }
-func (x *BasicLit) Pos() template.Pos   { return x.ValuePos }
-func (x *OpLit) Pos() template.Pos      { return x.OpPos }
-func (x *IndexExpr) Pos() template.Pos  { return x.X.Pos() }
-func (x *CallExpr) Pos() template.Pos   { return x.Fun.Pos() }
+func (x *Ident) Pos() template.Pos     { return x.NamePos }
+func (x *BasicLit) Pos() template.Pos  { return x.ValuePos }
+func (x *OpLit) Pos() template.Pos     { return x.OpPos }
+func (x *IndexExpr) Pos() template.Pos { return x.X.Pos() }
+func (x *CallExpr) Pos() template.Pos  { return x.Fun.Pos() }
+func (x *ArgsExpr) Pos() template.Pos {
+	if len(x.List) > 0 {
+		return x.List[0].Pos()
+	}
+	return template.NoPos
+}
 func (x *BinaryExpr) Pos() template.Pos { return x.X.Pos() }
 
-func (x *Ident) End() template.Pos      { return template.Pos(int(x.NamePos) + len(x.Name)) }
-func (x *BasicLit) End() template.Pos   { return template.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *OpLit) End() template.Pos      { return template.Pos(int(x.OpPos) + len(x.Op)) }
-func (x *IndexExpr) End() template.Pos  { return x.Index.End() + 2 }
-func (x *CallExpr) End() template.Pos   { return x.Rparen + 1 }
+func (x *Ident) End() template.Pos     { return template.Pos(int(x.NamePos) + len(x.Name)) }
+func (x *BasicLit) End() template.Pos  { return template.Pos(int(x.ValuePos) + len(x.Value)) }
+func (x *OpLit) End() template.Pos     { return template.Pos(int(x.OpPos) + len(x.Op)) }
+func (x *IndexExpr) End() template.Pos { return x.Index.End() + 2 }
+func (x *CallExpr) End() template.Pos  { return x.Rparen + 1 }
+func (x *ArgsExpr) End() template.Pos {
+	if len(x.List) > 0 {
+		return x.List[len(x.List)-1].Pos()
+	}
+	return template.NoPos
+}
 func (x *BinaryExpr) End() template.Pos { return x.Y.End() }
 
 // exprNode() ensures that only expression/type nodes can be
