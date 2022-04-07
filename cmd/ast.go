@@ -125,13 +125,6 @@ func (*BinaryExpr) exprNode() {}
 //
 func NewIdent(name string) *Ident { return &Ident{template.NoPos, name} }
 
-func (id *Ident) String() string {
-	if id != nil {
-		return id.Name
-	}
-	return "<nil>"
-}
-
 // ----------------------------------------------------------------------------
 // Statements
 
@@ -239,3 +232,7 @@ func (*IfStmt) stmtNode()      {}
 func (*ForStmt) stmtNode()     {}
 func (*RangeStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode()   {}
+
+func indentation() string {
+	return "····"
+}

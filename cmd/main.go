@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"gotpl/template"
 )
@@ -36,5 +37,7 @@ func main() {
 	stream := lex.Tokenize(&template.Source{Code: html})
 	filter := &TokenFilter{tr: &Tree{}}
 	tree := filter.Filter(stream)
-	fmt.Println(tree)
+	ds, _ := json.MarshalIndent(tree, "", "····")
+
+	fmt.Println(string(ds))
 }

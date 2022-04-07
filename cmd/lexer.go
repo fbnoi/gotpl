@@ -177,7 +177,7 @@ func (filter *TokenFilter) parseBlock(token *template.Token) {
 func (filter *TokenFilter) parseSet(token *template.Token) {
 	var ts []*template.Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != template.TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -202,6 +202,9 @@ func (filter *TokenFilter) parseAssignStmt(ts []*template.Token) *AssignStmt {
 		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
 			return ss
 		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
+			ss.Rh = filter.internelExpr(ts[2:])
+			return ss
+		} else {
 			ss.Rh = filter.internelExpr(ts[2:])
 			return ss
 		}
