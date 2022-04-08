@@ -1,0 +1,15 @@
+s           -> addExpress
+addExpr     -> mulExpr {opt1 mulExpr}
+boolExpr    -> mulExpr {opt3|opt4 mulExpr}
+mulExpr     -> arg {opt2 arg}
+arg         -> variable | number | string | method 
+method      -> name{.name}({variable{,variable}})
+variable    -> name{.name}
+automic     -> number|string
+opt1        -> + | -
+opt2        -> * | / | %
+opt3        -> > | < | >= | <=
+opt4        -> and | or | not
+opt5        -> []
+
+3 * (4 + 5)
