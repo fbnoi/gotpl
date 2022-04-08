@@ -28,7 +28,7 @@ func main() {
 	<title>{{ title }}</title>
 </head>
 <body>
-	{% set a = b.c(d.e, 1+ d.f) %}
+	{% set a = b.c(d.e, 1 + d.f) %}
 </body>
 </html>
 	`

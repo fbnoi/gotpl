@@ -1,13 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"gotpl/template"
 )
 
 var opPriority = map[string]int{
 	"+": 0, "%": 5,
-	"-": 0, ",": 10,
-	"*": 5, "[": 15,
+	"-": 0, "[": 10,
+	"*": 5,
 	"/": 5,
 }
 
@@ -311,34 +312,55 @@ func (ew *ExprWraper) Wrap() Expr {
 			ew.pushExpr(&Ident{NamePos: template.Pos(token.At), Name: token.Value()})
 		case template.TYPE_OPERATOR:
 			switch token.Value() {
-			case "+", "-", "*", "/", "%", "(", "[", ",":
+			case "+", "-", "*", "/", "%", "(", "[":
 				if comparePriority(token, ew.peekOp()) {
 					ew.pushOp(token)
 				} else {
 					ew.revert(token)
 				}
+
+			default:
+				panic("")
+			}
+		case template.TYPE_PUNCTUATION:
+			var op *template.Token
+			switch token.Value() {
+			case ",":
+				op = ew.peekOp()
+				for op.Value() != "(" && op.Value() != "," {
+					op = ew.popOp()
+					ew.revert(op)
+				}
+				ew.pushOp(token)
+			case "(", "[":
+				ew.pushOp(token)
 			case "]":
-				var op *template.Token
 				for op = ew.popOp(); op.Value() != "["; op = ew.popOp() {
 					ew.revert(op)
 				}
 				ew.revert(op)
 			case ")":
-				var op *template.Token
 				for op = ew.popOp(); op.Value() != "("; op = ew.popOp() {
 					ew.revert(op)
 				}
-				if op := ew.peekOp(); op.Type() == template.TYPE_NAME {
+				if op = ew.peekOp(); op.Type() == template.TYPE_NAME {
 					op = ew.popOp()
 					ew.revert(op)
 				}
-
 			default:
 				panic("")
 			}
 		}
 	}
-	return nil
+	for len(ew.opStack) > 0 {
+		ew.revert(ew.popOp())
+	}
+	expr := ew.popExpr()
+	if len(ew.eStack) > 0 {
+		fmt.Println(ew.eStack)
+		panic(len(ew.eStack))
+	}
+	return expr
 }
 
 func (ew *ExprWraper) revert(op *template.Token) {
@@ -418,6 +440,19 @@ func waperBinary(op *template.Token, x1, x2 Expr) Expr {
 		default:
 			panic("")
 		}
+	case template.TYPE_PUNCTUATION:
+		switch op.Value() {
+		case "[":
+			return &IndexExpr{X: x1, Index: x2}
+		case ",":
+			if arg, ok := x1.(*ArgsExpr); ok {
+				arg.List = append(arg.List, x2)
+				return arg
+			}
+			return &ArgsExpr{List: []Expr{x1, x2}}
+		default:
+			panic("")
+		}
 	default:
 		panic("")
 
@@ -439,6 +474,11 @@ func comparePriority(t1, t2 *template.Token) bool {
 	if t2.Value() == "(" || t2.Value() == "[" {
 		return false
 	}
+
+	if t2.Value() == "," {
+		return true
+	}
+
 	p1, ok1 := opPriority[t1.Value()]
 	p2, ok2 := opPriority[t2.Value()]
 	if ok1 && ok2 {
