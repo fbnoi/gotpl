@@ -1,5 +1,13 @@
 package template
 
+const NoPos Pos = 0
+
+type Pos int
+
+func (p Pos) Position() Pos {
+	return p
+}
+
 type ASTNode interface {
 	Pos() Pos // position of first character belonging to the node
 	End() Pos // position of first character immediately after the node
