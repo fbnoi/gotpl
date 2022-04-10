@@ -1,8 +1,7 @@
-package main
+package template
 
 import (
 	"fmt"
-	"gotpl/template"
 )
 
 var opPriority = map[string]int{
@@ -13,26 +12,26 @@ var opPriority = map[string]int{
 }
 
 type Tree struct {
-	List []Node
+	List []ASTNode
 }
 
 type TokenFilter struct {
 	tr     *Tree
 	cursor Stmt
-	stream *template.TokenStream
+	stream *TokenStream
 	stack  []Stmt
 }
 
-func (filter *TokenFilter) Filter(stream *template.TokenStream) *Tree {
+func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 	filter.stream = stream
 	for !stream.IsEOF() {
 		token := stream.Next()
 		switch token.Type() {
-		case template.TYPE_TEXT:
+		case TYPE_TEXT:
 			filter.parseText(token)
-		case template.TYPE_VAR_START:
+		case TYPE_VAR_START:
 			filter.parseVar(token)
-		case template.TYPE_BLOCK_START:
+		case TYPE_BLOCK_START:
 			token := stream.Next()
 			switch token.Value() {
 			case "if":
@@ -63,16 +62,16 @@ func (filter *TokenFilter) Filter(stream *template.TokenStream) *Tree {
 	return filter.tr
 }
 
-func (filter *TokenFilter) parseText(token *template.Token) {
-	ts := &TextStmt{&BasicLit{ValuePos: template.Pos(token.At), Kind: template.TYPE_STRING, Value: token.Value()}}
+func (filter *TokenFilter) parseText(token *Token) {
+	ts := &TextStmt{&BasicLit{ValuePos: Pos(token.At), Kind: TYPE_STRING, Value: token.Value()}}
 	filter.append(ts)
 }
 
-func (filter *TokenFilter) parseVar(token *template.Token) {
+func (filter *TokenFilter) parseVar(token *Token) {
 	vs := &ValueStmt{}
-	var ts []*template.Token
+	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -82,11 +81,11 @@ func (filter *TokenFilter) parseVar(token *template.Token) {
 	filter.append(vs)
 }
 
-func (filter *TokenFilter) parseIf(token *template.Token) {
-	is := &IfStmt{If: template.Pos(token.At)}
-	var ts []*template.Token
+func (filter *TokenFilter) parseIf(token *Token) {
+	is := &IfStmt{If: Pos(token.At)}
+	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -97,7 +96,7 @@ func (filter *TokenFilter) parseIf(token *template.Token) {
 	filter.push(is)
 }
 
-func (filter *TokenFilter) parseElse(token *template.Token) {
+func (filter *TokenFilter) parseElse(token *Token) {
 	es := &SectionStmt{}
 	if st, ok := filter.cursor.(*IfStmt); ok {
 		st.Else = es
@@ -107,11 +106,11 @@ func (filter *TokenFilter) parseElse(token *template.Token) {
 	filter.push(es)
 }
 
-func (filter *TokenFilter) parseElseIf(token *template.Token) {
+func (filter *TokenFilter) parseElseIf(token *Token) {
 	efs := &IfStmt{}
-	var ts []*template.Token
+	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != template.TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -126,13 +125,13 @@ func (filter *TokenFilter) parseElseIf(token *template.Token) {
 	filter.push(efs)
 }
 
-func (filter *TokenFilter) parseFor(token *template.Token) {
-	fs := &ForStmt{For: template.Pos(token.At)}
-	var tss [][]*template.Token
+func (filter *TokenFilter) parseFor(token *Token) {
+	fs := &ForStmt{For: Pos(token.At)}
+	var tss [][]*Token
 	for !filter.stream.IsEOF() {
-		var ts []*template.Token
+		var ts []*Token
 		token := filter.stream.Next()
-		for token.Value() != ";" && token.Type() != template.TYPE_EOF {
+		for token.Value() != ";" && token.Type() != TYPE_EOF {
 			ts = append(ts, token)
 		}
 		tss = append(tss, ts)
@@ -148,10 +147,10 @@ func (filter *TokenFilter) parseFor(token *template.Token) {
 	filter.push(fs)
 }
 
-func (filter *TokenFilter) parseRange(token *template.Token) {
-	rs := &RangeStmt{For: template.Pos(token.At)}
+func (filter *TokenFilter) parseRange(token *Token) {
+	rs := &RangeStmt{For: Pos(token.At)}
 	keyToken := filter.stream.Next()
-	rs.Key = &Ident{NamePos: template.Pos(keyToken.At), Name: keyToken.Value()}
+	rs.Key = &Ident{NamePos: Pos(keyToken.At), Name: keyToken.Value()}
 	valueToken := filter.stream.Next()
 	if valueToken.Value() == "," {
 		valueToken = filter.stream.Next()
@@ -159,15 +158,15 @@ func (filter *TokenFilter) parseRange(token *template.Token) {
 		valueToken = nil
 	}
 	if valueToken != nil && valueToken.Value() != "_" {
-		rs.Value = &Ident{NamePos: template.Pos(valueToken.At), Name: valueToken.Value()}
+		rs.Value = &Ident{NamePos: Pos(valueToken.At), Name: valueToken.Value()}
 	}
 
 	filter.append(rs)
 	filter.push(rs)
 }
 
-func (filter *TokenFilter) parseBlock(token *template.Token) {
-	if token.Type() != template.TYPE_NAME {
+func (filter *TokenFilter) parseBlock(token *Token) {
+	if token.Type() != TYPE_NAME {
 		panic("")
 	}
 	bs := &BlockStmt{Name: token.Value()}
@@ -175,10 +174,10 @@ func (filter *TokenFilter) parseBlock(token *template.Token) {
 	filter.push(bs)
 }
 
-func (filter *TokenFilter) parseSet(token *template.Token) {
-	var ts []*template.Token
+func (filter *TokenFilter) parseSet(token *Token) {
+	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != template.TYPE_BLOCK_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -188,18 +187,18 @@ func (filter *TokenFilter) parseSet(token *template.Token) {
 	filter.append(ss)
 }
 
-func (filter *TokenFilter) parseAssignStmt(ts []*template.Token) *AssignStmt {
+func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
 	switch {
 	case len(ts) == 0:
 		return nil
 	case len(ts) >= 2:
 		token := ts[0]
-		if token.Type() != template.TYPE_NAME {
+		if token.Type() != TYPE_NAME {
 			panic("")
 		}
-		ss := &AssignStmt{Lh: &Ident{NamePos: template.Pos(token.At), Name: token.Value()}}
+		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.At), Name: token.Value()}}
 		tok := ts[1]
-		ss.TokPos, ss.Tok = template.Pos(tok.At), tok.Value()
+		ss.TokPos, ss.Tok = Pos(tok.At), tok.Value()
 		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
 			return ss
 		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
@@ -283,25 +282,25 @@ func (filter *TokenFilter) push(s Stmt) {
 	filter.cursor = s
 }
 
-func (filter *TokenFilter) internelExpr(ts []*template.Token) Expr {
+func (filter *TokenFilter) internelExpr(ts []*Token) Expr {
 	wrapper := &ExprWraper{stream: ts}
 
 	return wrapper.Wrap()
 }
 
 type ExprWraper struct {
-	stream  []*template.Token
+	stream  []*Token
 	eStack  []Expr
-	opStack []*template.Token
+	opStack []*Token
 }
 
 func (ew *ExprWraper) Wrap() Expr {
 	for i := 0; i < len(ew.stream); i++ {
 		token := ew.stream[i]
 		switch token.Type() {
-		case template.TYPE_STRING, template.TYPE_NUMBER:
-			ew.pushExpr(&BasicLit{ValuePos: template.Pos(token.At), Value: token.Value()})
-		case template.TYPE_NAME:
+		case TYPE_STRING, TYPE_NUMBER:
+			ew.pushExpr(&BasicLit{ValuePos: Pos(token.At), Value: token.Value()})
+		case TYPE_NAME:
 			if i+1 < len(ew.stream) {
 				p := ew.stream[i+1]
 				if p.Value() == "(" {
@@ -309,8 +308,8 @@ func (ew *ExprWraper) Wrap() Expr {
 					continue
 				}
 			}
-			ew.pushExpr(&Ident{NamePos: template.Pos(token.At), Name: token.Value()})
-		case template.TYPE_OPERATOR:
+			ew.pushExpr(&Ident{NamePos: Pos(token.At), Name: token.Value()})
+		case TYPE_OPERATOR:
 			switch token.Value() {
 			case "+", "-", "*", "/", "%", "(", "[":
 				if comparePriority(token, ew.peekOp()) {
@@ -322,8 +321,8 @@ func (ew *ExprWraper) Wrap() Expr {
 			default:
 				panic("")
 			}
-		case template.TYPE_PUNCTUATION:
-			var op *template.Token
+		case TYPE_PUNCTUATION:
+			var op *Token
 			switch token.Value() {
 			case ",":
 				op = ew.peekOp()
@@ -343,7 +342,7 @@ func (ew *ExprWraper) Wrap() Expr {
 				for op = ew.popOp(); op.Value() != "("; op = ew.popOp() {
 					ew.revert(op)
 				}
-				if op = ew.peekOp(); op.Type() == template.TYPE_NAME {
+				if op = ew.peekOp(); op.Type() == TYPE_NAME {
 					op = ew.popOp()
 					ew.revert(op)
 				}
@@ -363,10 +362,10 @@ func (ew *ExprWraper) Wrap() Expr {
 	return expr
 }
 
-func (ew *ExprWraper) revert(op *template.Token) {
-	if op.Type() == template.TYPE_NAME {
-		fun := &Ident{NamePos: template.Pos(op.At), Name: op.Value()}
-		call := &CallExpr{Fun: fun, Lparen: template.Pos(op.At + 1)}
+func (ew *ExprWraper) revert(op *Token) {
+	if op.Type() == TYPE_NAME {
+		fun := &Ident{NamePos: Pos(op.At), Name: op.Value()}
+		call := &CallExpr{Fun: fun, Lparen: Pos(op.At + 1)}
 		if _, ok := ew.peekExpr().(*ArgsExpr); ok {
 			args := ew.popExpr().(*ArgsExpr)
 			call.Args = args
@@ -400,18 +399,18 @@ func (ew *ExprWraper) popExpr() Expr {
 	return t
 }
 
-func (ew *ExprWraper) peekOp() *template.Token {
+func (ew *ExprWraper) peekOp() *Token {
 	if len(ew.opStack) == 0 {
 		panic("")
 	}
 	return ew.opStack[len(ew.opStack)-1]
 }
 
-func (ew *ExprWraper) pushOp(op *template.Token) {
+func (ew *ExprWraper) pushOp(op *Token) {
 	ew.opStack = append(ew.opStack, op)
 }
 
-func (ew *ExprWraper) popOp() (t *template.Token) {
+func (ew *ExprWraper) popOp() (t *Token) {
 	if len(ew.opStack) == 0 {
 		panic("")
 	}
@@ -420,15 +419,15 @@ func (ew *ExprWraper) popOp() (t *template.Token) {
 	return
 }
 
-func waperBinary(op *template.Token, x1, x2 Expr) Expr {
+func waperBinary(op *Token, x1, x2 Expr) Expr {
 	switch op.Type() {
-	case template.TYPE_NAME:
-		fn := &Ident{NamePos: template.Pos(op.At), Name: op.Value()}
-		return &CallExpr{Fun: fn, Lparen: template.Pos(op.At + 1)}
-	case template.TYPE_OPERATOR:
+	case TYPE_NAME:
+		fn := &Ident{NamePos: Pos(op.At), Name: op.Value()}
+		return &CallExpr{Fun: fn, Lparen: Pos(op.At + 1)}
+	case TYPE_OPERATOR:
 		switch op.Value() {
 		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=":
-			return &BinaryExpr{X: x2, Op: OpLit{OpPos: template.Pos(op.At), Op: op.Value()}, Y: x1}
+			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.At), Op: op.Value()}, Y: x1}
 		case "[":
 			return &IndexExpr{X: x1, Index: x2}
 		case ",":
@@ -440,7 +439,7 @@ func waperBinary(op *template.Token, x1, x2 Expr) Expr {
 		default:
 			panic("")
 		}
-	case template.TYPE_PUNCTUATION:
+	case TYPE_PUNCTUATION:
 		switch op.Value() {
 		case "[":
 			return &IndexExpr{X: x1, Index: x2}
@@ -459,15 +458,15 @@ func waperBinary(op *template.Token, x1, x2 Expr) Expr {
 	}
 }
 
-func comparePriority(t1, t2 *template.Token) bool {
-	if t1.Type() == template.TYPE_NAME {
+func comparePriority(t1, t2 *Token) bool {
+	if t1.Type() == TYPE_NAME {
 		return true
 	}
 	if t1.Value() == "(" || t1.Value() == "[" {
 		return true
 	}
 
-	if t2.Type() == template.TYPE_NAME {
+	if t2.Type() == TYPE_NAME {
 		return false
 	}
 

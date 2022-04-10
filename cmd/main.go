@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"gotpl/template"
+
+	"fbnoi.com/gotpl/template"
 )
 
 // func main() {
@@ -35,7 +36,7 @@ func main() {
 
 	lex := &template.Lexer{}
 	stream := lex.Tokenize(&template.Source{Code: html})
-	filter := &TokenFilter{tr: &Tree{}}
+	filter := &template.TokenFilter{tr: &template.Tree{}}
 	tree := filter.Filter(stream)
 	ds, _ := json.MarshalIndent(tree, "", "····")
 
