@@ -6,7 +6,6 @@ import (
 
 type TokenStream struct {
 	tokens  []*Token
-	source  *Source
 	current int
 }
 
@@ -28,8 +27,4 @@ func (ts *TokenStream) Next() *Token {
 
 func (ts *TokenStream) IsEOF() bool {
 	return TYPE_EOF == ts.tokens[ts.current].Type()
-}
-
-func (ts *TokenStream) GetSource() *Source {
-	return ts.source
 }

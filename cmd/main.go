@@ -39,7 +39,7 @@ func main() {
 	`
 
 	lex := &template.Lexer{}
-	stream := lex.Tokenize(&template.Source{Code: html})
+	stream := lex.Tokenize(html)
 	filter := &template.TokenFilter{Tr: &template.Tree{}}
 	tree := filter.Filter(stream)
 	ds, _ := json.MarshalIndent(tree, "", "····")

@@ -87,24 +87,21 @@ type template struct {
 	lastParseTime time.Time
 }
 
-func (t *template) parse(view string) error {
-	t.name, t.lastParseTime = view, time.Now()
-	if fh, err := os.Open(view); err == nil {
-		defer fh.Close()
-
-		if content, err := ioutil.ReadAll(fh); err == nil {
-			lex := &Lexer{}
-			stream := lex.Tokenize(&Source{Code: string(content)})
-			filter := &TokenFilter{Tr: &Tree{}}
-			t.tr = filter.Filter(stream)
-
-			return nil
-		}
-		return errors.WithStack(err)
-	} else {
-
-		return errors.WithStack(err)
+func (t *template) readFile(path string) (string, error) {
+	fs, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", errors.WithStack(err)
 	}
+	return string(fs), nil
+}
+
+func (t *template) parse(tpl string) error {
+
+	lex := &Lexer{}
+	stream := lex.Tokenize(tpl)
+	filter := &TokenFilter{Tr: &Tree{}}
+	t.tr = filter.Filter(stream)
+	return nil
 }
 
 func (t *template) update() error {
@@ -113,7 +110,7 @@ func (t *template) update() error {
 	return t.parse(t.name)
 }
 
-func (t *template) Execute(data ...any) []byte {
+func (t *template) execute(data ...any) []byte {
 	return nil
 }
 
@@ -126,7 +123,7 @@ func Render(w io.Writer, view string, data ...any) error {
 	}
 
 	if t := defaultTemplates.getTemplate(view); t != nil {
-		if _, err := w.Write(t.Execute(data)); err != nil {
+		if _, err := w.Write(t.execute(data)); err != nil {
 			return errors.WithStack(err)
 		}
 		return nil

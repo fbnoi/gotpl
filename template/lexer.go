@@ -63,7 +63,6 @@ func (b *bracket) String() string {
 
 type Lexer struct {
 	tokens    []*Token
-	source    *Source
 	code      string
 	cursor    int
 	lineno    int
@@ -72,9 +71,8 @@ type Lexer struct {
 	positions [][]int
 }
 
-func (lex *Lexer) Tokenize(source *Source) *TokenStream {
-	lex.source = source
-	lex.code = reg_enter.ReplaceAllString(source.Code, "\n")
+func (lex *Lexer) Tokenize(str string) *TokenStream {
+	lex.code = reg_enter.ReplaceAllString(str, "\n")
 	lex.cursor = 0
 	lex.lineno = 1
 	lex.end = len(lex.code)
@@ -93,7 +91,7 @@ func (lex *Lexer) Tokenize(source *Source) *TokenStream {
 		lex.pushToken(TYPE_TEXT, lex.code[lex.cursor:lex.end])
 	}
 	lex.pushToken(TYPE_EOF, "")
-	return &TokenStream{tokens: lex.tokens, source: lex.source}
+	return &TokenStream{tokens: lex.tokens}
 }
 
 func (lex *Lexer) lexFromTo() {
@@ -108,21 +106,17 @@ func (lex *Lexer) lexFromTo() {
 	case 3:
 		var (
 			reg *regexp.Regexp
-			tag string
 		)
 		switch lex.code[position[0]+1 : position[1]] {
 		case TAG_COMMENT[0]:
 			reg = reg_comment
-			tag = TAG_COMMENT[0]
 		case TAG_BLOCK[0]:
 			reg = reg_block
-			tag = TAG_BLOCK[0]
 		case TAG_VARIABLE[0]:
 			reg = reg_variable
-			tag = TAG_VARIABLE[0]
 		}
 		if !reg_variable.MatchString(lex.code[lex.cursor:]) {
-			panic(NewErrorf(lex.lineno, lex.source, "Unclosed %s", tag))
+			panic("")
 		}
 		subp := lex.findStringIndex(reg, lex.code, lex.cursor)
 		lex.pushToken(TYPE_TEXT, lex.code[position[0]+1:subp[1]])
@@ -137,7 +131,7 @@ func (lex *Lexer) lexFromTo() {
 				lex.moveCursor(position[1])
 				subp := lex.findStringIndex(reg_raw_data, lex.code, lex.cursor)
 				if len(subp) == 0 {
-					panic(NewError(lex.lineno, lex.source, "Unclosed {% verbatim %}"))
+					panic("")
 				}
 				lex.pushToken(TYPE_STRING, lex.code[lex.cursor:subp[0]])
 				lex.moveCursor(subp[1])
@@ -156,7 +150,7 @@ func (lex *Lexer) lexFromTo() {
 
 func (lex *Lexer) lexComment() {
 	if !reg_comment.MatchString(lex.code[lex.cursor:]) {
-		panic(NewErrorf(lex.lineno, lex.source, "Unclosed %s", TAG_COMMENT[0]))
+		panic("")
 	}
 	position := lex.findStringIndex(reg_comment, lex.code, lex.cursor)
 	lex.moveCursor(position[1])
@@ -164,7 +158,7 @@ func (lex *Lexer) lexComment() {
 
 func (lex *Lexer) LexRegData(reg *regexp.Regexp, tag string) {
 	if !reg.MatchString(lex.code[lex.cursor:]) {
-		panic(NewErrorf(lex.lineno, lex.source, "Unclosed %s", tag))
+		panic("")
 	}
 	lex.lexExpression(reg)
 }
@@ -210,24 +204,24 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) {
 				// bracket close
 			} else if subp = lex.findStringIndex(reg_bracket_close, lex.code[:position[0]], lex.cursor); len(subp) > 0 && subp[0] == lex.cursor {
 				if len(brackets) == 0 {
-					panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[subp[0]:subp[1]]))
+					panic("")
 				}
 				b := brackets[len(brackets)-1]
 				switch b.ch {
 				case "{":
 					if lex.code[subp[0]:subp[1]] != "}" {
-						panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[subp[0]:subp[1]]))
+						panic("")
 					}
 				case "(":
 					if lex.code[subp[0]:subp[1]] != ")" {
-						panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[subp[0]:subp[1]]))
+						panic("")
 					}
 				case "[":
 					if lex.code[subp[0]:subp[1]] != "]" {
-						panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[subp[0]:subp[1]]))
+						panic("")
 					}
 				default:
-					panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[subp[0]:subp[1]]))
+					panic("")
 				}
 				brackets = brackets[:len(brackets)-1]
 			} else {
@@ -239,12 +233,12 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) {
 			}
 		} else {
 			// unkown token
-			panic(NewErrorf(lex.lineno, lex.source, "Unexpected token %s", lex.code[lex.cursor:lex.cursor+1]))
+			panic("")
 		}
 	}
 
 	if len(brackets) > 0 {
-		panic(NewErrorf(lex.lineno, lex.source, "Unclosed %s", brackets[len(brackets)-1]))
+		panic("")
 	}
 	lex.moveCursor(position[1])
 }
