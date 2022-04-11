@@ -29,14 +29,18 @@ func main() {
 	<title>{{ title }}</title>
 </head>
 <body>
-	{% set a = b.c(d.e, 1 + d.f) %}
+	{% if a==1 %}
+	text in if
+	{% elseif c >= d %}
+	text in else if
+	{% endif %}
 </body>
 </html>
 	`
 
 	lex := &template.Lexer{}
 	stream := lex.Tokenize(&template.Source{Code: html})
-	filter := &template.TokenFilter{tr: &template.Tree{}}
+	filter := &template.TokenFilter{Tr: &template.Tree{}}
 	tree := filter.Filter(stream)
 	ds, _ := json.MarshalIndent(tree, "", "····")
 

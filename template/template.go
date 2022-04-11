@@ -95,7 +95,7 @@ func (t *template) parse(view string) error {
 		if content, err := ioutil.ReadAll(fh); err == nil {
 			lex := &Lexer{}
 			stream := lex.Tokenize(&Source{Code: string(content)})
-			filter := &TokenFilter{tr: &Tree{}}
+			filter := &TokenFilter{Tr: &Tree{}}
 			t.tr = filter.Filter(stream)
 
 			return nil

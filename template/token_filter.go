@@ -5,10 +5,11 @@ import (
 )
 
 var opPriority = map[string]int{
-	"+": 0, "%": 5,
-	"-": 0, "[": 10,
-	"*": 5,
-	"/": 5,
+	"==": 0, ">=": 0, "<=": 0, ">": 0, "<": 0, "!=": 0,
+	"+": 5, "%": 10,
+	"-": 5, "[": 15,
+	"*": 10,
+	"/": 10,
 }
 
 type Tree struct {
@@ -16,7 +17,7 @@ type Tree struct {
 }
 
 type TokenFilter struct {
-	tr     *Tree
+	Tr     *Tree
 	cursor Stmt
 	stream *TokenStream
 	stack  []Stmt
@@ -59,7 +60,7 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 			}
 		}
 	}
-	return filter.tr
+	return filter.Tr
 }
 
 func (filter *TokenFilter) parseText(token *Token) {
@@ -85,7 +86,7 @@ func (filter *TokenFilter) parseIf(token *Token) {
 	is := &IfStmt{If: Pos(token.At)}
 	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -110,7 +111,7 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 	efs := &IfStmt{}
 	var ts []*Token
 	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
+		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -214,12 +215,21 @@ func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
 
 func (filter *TokenFilter) append(s Stmt) {
 	if filter.cursor == nil {
-		filter.tr.List = append(filter.tr.List, s)
+		filter.Tr.List = append(filter.Tr.List, s)
 	} else if st, ok := filter.cursor.(*IfStmt); ok {
+		if st.Body == nil {
+			st.Body = &SectionStmt{}
+		}
 		st.Body.List = append(st.Body.List, s)
 	} else if st, ok := filter.cursor.(*RangeStmt); ok {
+		if st.Body == nil {
+			st.Body = &SectionStmt{}
+		}
 		st.Body.List = append(st.Body.List, s)
 	} else if st, ok := filter.cursor.(*ForStmt); ok {
+		if st.Body == nil {
+			st.Body = &SectionStmt{}
+		}
 		st.Body.List = append(st.Body.List, s)
 	} else {
 		panic("")
@@ -233,7 +243,6 @@ func (filter *TokenFilter) popBlock() {
 		_, ok = filter.cursor.(*BlockStmt)
 	}
 	filter.cursor = filter.pop()
-	panic("")
 }
 
 func (filter *TokenFilter) popRange() {
@@ -243,7 +252,6 @@ func (filter *TokenFilter) popRange() {
 		_, ok = filter.cursor.(*RangeStmt)
 	}
 	filter.cursor = filter.pop()
-	panic("")
 }
 
 func (filter *TokenFilter) popFor() {
@@ -253,7 +261,6 @@ func (filter *TokenFilter) popFor() {
 		_, ok = filter.cursor.(*ForStmt)
 	}
 	filter.cursor = filter.pop()
-	panic("")
 }
 
 func (filter *TokenFilter) popIf() {
@@ -263,12 +270,14 @@ func (filter *TokenFilter) popIf() {
 		_, ok = filter.cursor.(*IfStmt)
 	}
 	filter.cursor = filter.pop()
-	panic("")
 }
 
 func (filter *TokenFilter) pop() Stmt {
 	if len(filter.stack) == 0 {
-		panic("")
+		if filter.cursor == nil {
+			panic("")
+		}
+		return nil
 	}
 	n := filter.stack[len(filter.stack)-1]
 	filter.stack = filter.stack[:len(filter.stack)-1]
@@ -311,15 +320,14 @@ func (ew *ExprWraper) Wrap() Expr {
 			ew.pushExpr(&Ident{NamePos: Pos(token.At), Name: token.Value()})
 		case TYPE_OPERATOR:
 			switch token.Value() {
-			case "+", "-", "*", "/", "%", "(", "[":
-				if comparePriority(token, ew.peekOp()) {
+			case "+", "-", "*", "/", "%", "==", ">=", "<=", ">", "<", "!=":
+				if len(ew.opStack) == 0 || comparePriority(token, ew.peekOp()) {
 					ew.pushOp(token)
 				} else {
 					ew.revert(token)
 				}
-
 			default:
-				panic("")
+				panic(token.Value())
 			}
 		case TYPE_PUNCTUATION:
 			var op *Token
@@ -426,18 +434,10 @@ func waperBinary(op *Token, x1, x2 Expr) Expr {
 		return &CallExpr{Fun: fn, Lparen: Pos(op.At + 1)}
 	case TYPE_OPERATOR:
 		switch op.Value() {
-		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=":
+		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==":
 			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.At), Op: op.Value()}, Y: x1}
-		case "[":
-			return &IndexExpr{X: x1, Index: x2}
-		case ",":
-			if arg, ok := x1.(*ArgsExpr); ok {
-				arg.List = append(arg.List, x2)
-				return arg
-			}
-			return &ArgsExpr{List: []Expr{x1, x2}}
 		default:
-			panic("")
+			panic(op.Value())
 		}
 	case TYPE_PUNCTUATION:
 		switch op.Value() {

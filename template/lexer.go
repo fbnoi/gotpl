@@ -38,8 +38,8 @@ var (
 	reg_enter = regexp.MustCompile(`(\r\n|\n)`)
 	// whitespace
 	reg_whitespace = regexp.MustCompile(`^\s+`)
-	// +-*%&^|><=
-	reg_operator = regexp.MustCompile(`[\+\-\&*%\^><=:]{1,3}|(and)|(or)`)
+	// +-*/%&^|><=
+	reg_operator = regexp.MustCompile(`[\+\-\&*\/%\^><=:]{1,3}|(and)|(or)`)
 	// name
 	reg_name = regexp.MustCompile(`[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*(\.[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)*`)
 	// number
