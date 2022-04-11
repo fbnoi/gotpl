@@ -289,26 +289,24 @@ func (filter *TokenFilter) push(s Stmt) {
 }
 
 func (filter *TokenFilter) internelExpr(ts []*Token) Expr {
-	wrapper := &ExprWraper{stream: ts}
 
-	return wrapper.Wrap()
+	return (&exprWraper{}).Wrap(ts)
 }
 
-type ExprWraper struct {
-	stream  []*Token
+type exprWraper struct {
 	eStack  []Expr
 	opStack []*Token
 }
 
-func (ew *ExprWraper) Wrap() Expr {
-	for i := 0; i < len(ew.stream); i++ {
-		token := ew.stream[i]
+func (ew *exprWraper) Wrap(stream []*Token) Expr {
+	for i := 0; i < len(stream); i++ {
+		token := stream[i]
 		switch token.Type() {
 		case TYPE_STRING, TYPE_NUMBER:
 			ew.pushExpr(&BasicLit{ValuePos: Pos(token.at), Value: token.Value()})
 		case TYPE_NAME:
-			if i+1 < len(ew.stream) {
-				p := ew.stream[i+1]
+			if i+1 < len(stream) {
+				p := stream[i+1]
 				if p.Value() == "(" {
 					ew.pushOp(token)
 					continue
@@ -324,7 +322,7 @@ func (ew *ExprWraper) Wrap() Expr {
 					ew.revert(token)
 				}
 			default:
-				panic(token.Value())
+				panic(token)
 			}
 		case TYPE_PUNCTUATION:
 			var op *Token
@@ -352,7 +350,7 @@ func (ew *ExprWraper) Wrap() Expr {
 					ew.revert(op)
 				}
 			default:
-				panic("")
+				panic(token)
 			}
 		}
 	}
@@ -367,7 +365,7 @@ func (ew *ExprWraper) Wrap() Expr {
 	return expr
 }
 
-func (ew *ExprWraper) revert(op *Token) {
+func (ew *exprWraper) revert(op *Token) {
 	if op.Type() == TYPE_NAME {
 		fun := &Ident{NamePos: Pos(op.at), Name: op.Value()}
 		call := &CallExpr{Fun: fun, Lparen: Pos(op.at + 1)}
@@ -384,40 +382,40 @@ func (ew *ExprWraper) revert(op *Token) {
 	ew.pushExpr(waperBinary(op, ew.popExpr(), ew.popExpr()))
 }
 
-func (ew *ExprWraper) peekExpr() Expr {
+func (ew *exprWraper) peekExpr() Expr {
 	if len(ew.eStack) == 0 {
-		panic("")
+		panic("Resolve Expr failed, try to peek empty expression stack")
 	}
 	return ew.eStack[len(ew.eStack)-1]
 }
 
-func (ew *ExprWraper) pushExpr(e Expr) {
+func (ew *exprWraper) pushExpr(e Expr) {
 	ew.eStack = append(ew.eStack, e)
 }
 
-func (ew *ExprWraper) popExpr() Expr {
+func (ew *exprWraper) popExpr() Expr {
 	if len(ew.eStack) == 0 {
-		panic("")
+		panic("Resolve Expr failed, try to pop empty expression stack")
 	}
 	t := ew.eStack[len(ew.eStack)-1]
 	ew.eStack = ew.eStack[:len(ew.eStack)-1]
 	return t
 }
 
-func (ew *ExprWraper) peekOp() *Token {
+func (ew *exprWraper) peekOp() *Token {
 	if len(ew.opStack) == 0 {
-		panic("")
+		panic("Resolve Expr failed, try to peek empty oprator stack")
 	}
 	return ew.opStack[len(ew.opStack)-1]
 }
 
-func (ew *ExprWraper) pushOp(op *Token) {
+func (ew *exprWraper) pushOp(op *Token) {
 	ew.opStack = append(ew.opStack, op)
 }
 
-func (ew *ExprWraper) popOp() (t *Token) {
+func (ew *exprWraper) popOp() (t *Token) {
 	if len(ew.opStack) == 0 {
-		panic("")
+		panic("Resolve Expr failed, try to pop empty oprator stack")
 	}
 	t = ew.opStack[len(ew.opStack)-1]
 	ew.opStack = ew.opStack[:len(ew.opStack)-1]
@@ -433,8 +431,6 @@ func waperBinary(op *Token, x1, x2 Expr) Expr {
 		switch op.Value() {
 		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==":
 			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.at), Op: op.Value()}, Y: x1}
-		default:
-			panic(op.Value())
 		}
 	case TYPE_PUNCTUATION:
 		switch op.Value() {
@@ -446,13 +442,9 @@ func waperBinary(op *Token, x1, x2 Expr) Expr {
 				return arg
 			}
 			return &ArgsExpr{List: []Expr{x1, x2}}
-		default:
-			panic("")
 		}
-	default:
-		panic("")
-
 	}
+	panic(op)
 }
 
 func comparePriority(t1, t2 *Token) bool {
@@ -480,5 +472,9 @@ func comparePriority(t1, t2 *Token) bool {
 	if ok1 && ok2 {
 		return p1 > p2
 	}
-	panic("")
+	if ok2 {
+		panic(t1)
+	}
+	panic(ok2)
+
 }

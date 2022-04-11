@@ -18,10 +18,6 @@ func (ts *TokenStream) String() string {
 	return buf.String()
 }
 
-func (ts *TokenStream) InjectToken(tks []*Token) {
-	ts.tokens = append(ts.tokens, tks...)
-}
-
 func (ts *TokenStream) Next() *Token {
 	ts.current++
 	if ts.current >= len(ts.tokens) {
@@ -32,10 +28,6 @@ func (ts *TokenStream) Next() *Token {
 
 func (ts *TokenStream) IsEOF() bool {
 	return TYPE_EOF == ts.tokens[ts.current].Type()
-}
-
-func (ts *TokenStream) GetCurrent() int {
-	return ts.current
 }
 
 func (ts *TokenStream) GetSource() *Source {
