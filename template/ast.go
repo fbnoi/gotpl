@@ -43,7 +43,7 @@ type (
 	BasicLit struct {
 		ValuePos Pos    // literal position
 		Kind     int    // TYPE_NUMBER, TYPE_STRING
-		Value    string // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', '\x7f', "foo" or `\m\n\o`
+		Value    string // literal string; e.g. 42, 0x7f, 3.14, 1e-9, 2.4i, 'a', etc.
 	}
 
 	OpLit struct {
