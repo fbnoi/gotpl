@@ -21,14 +21,12 @@ type Token struct {
 	value string
 	typ   int
 	line  int
-	At    int
+	at    int
 }
 
 func (t *Token) String() string {
-	return fmt.Sprintf("%s(%s)", TypeToString(t.typ), t.value)
+	return fmt.Sprintf("%s(%s)(%d:%d)", TypeToString(t.typ), t.value, t.line, t.at)
 }
-
-// func (ts *Token) Test(typ int, value interface{}) bool
 
 func (t *Token) Value() string {
 	return t.value
@@ -40,6 +38,10 @@ func (t *Token) Type() int {
 
 func (t *Token) Line() int {
 	return t.line
+}
+
+func (t *Token) At() int {
+	return t.at
 }
 
 func TypeToString(typ int) (name string) {

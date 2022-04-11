@@ -64,7 +64,7 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 }
 
 func (filter *TokenFilter) parseText(token *Token) {
-	ts := &TextStmt{&BasicLit{ValuePos: Pos(token.At), Kind: TYPE_STRING, Value: token.Value()}}
+	ts := &TextStmt{&BasicLit{ValuePos: Pos(token.at), Kind: TYPE_STRING, Value: token.Value()}}
 	filter.append(ts)
 }
 
@@ -83,7 +83,7 @@ func (filter *TokenFilter) parseVar(token *Token) {
 }
 
 func (filter *TokenFilter) parseIf(token *Token) {
-	is := &IfStmt{If: Pos(token.At)}
+	is := &IfStmt{If: Pos(token.at)}
 	var ts []*Token
 	for !filter.stream.IsEOF() {
 		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
@@ -127,7 +127,7 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 }
 
 func (filter *TokenFilter) parseFor(token *Token) {
-	fs := &ForStmt{For: Pos(token.At)}
+	fs := &ForStmt{For: Pos(token.at)}
 	var tss [][]*Token
 	for !filter.stream.IsEOF() {
 		var ts []*Token
@@ -149,9 +149,9 @@ func (filter *TokenFilter) parseFor(token *Token) {
 }
 
 func (filter *TokenFilter) parseRange(token *Token) {
-	rs := &RangeStmt{For: Pos(token.At)}
+	rs := &RangeStmt{For: Pos(token.at)}
 	keyToken := filter.stream.Next()
-	rs.Key = &Ident{NamePos: Pos(keyToken.At), Name: keyToken.Value()}
+	rs.Key = &Ident{NamePos: Pos(keyToken.at), Name: keyToken.Value()}
 	valueToken := filter.stream.Next()
 	if valueToken.Value() == "," {
 		valueToken = filter.stream.Next()
@@ -159,7 +159,7 @@ func (filter *TokenFilter) parseRange(token *Token) {
 		valueToken = nil
 	}
 	if valueToken != nil && valueToken.Value() != "_" {
-		rs.Value = &Ident{NamePos: Pos(valueToken.At), Name: valueToken.Value()}
+		rs.Value = &Ident{NamePos: Pos(valueToken.at), Name: valueToken.Value()}
 	}
 
 	filter.append(rs)
@@ -197,9 +197,9 @@ func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
 		if token.Type() != TYPE_NAME {
 			panic("")
 		}
-		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.At), Name: token.Value()}}
+		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.at), Name: token.Value()}}
 		tok := ts[1]
-		ss.TokPos, ss.Tok = Pos(tok.At), tok.Value()
+		ss.TokPos, ss.Tok = Pos(tok.at), tok.Value()
 		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
 			return ss
 		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
@@ -308,7 +308,7 @@ func (ew *ExprWraper) Wrap() Expr {
 		token := ew.stream[i]
 		switch token.Type() {
 		case TYPE_STRING, TYPE_NUMBER:
-			ew.pushExpr(&BasicLit{ValuePos: Pos(token.At), Value: token.Value()})
+			ew.pushExpr(&BasicLit{ValuePos: Pos(token.at), Value: token.Value()})
 		case TYPE_NAME:
 			if i+1 < len(ew.stream) {
 				p := ew.stream[i+1]
@@ -317,7 +317,7 @@ func (ew *ExprWraper) Wrap() Expr {
 					continue
 				}
 			}
-			ew.pushExpr(&Ident{NamePos: Pos(token.At), Name: token.Value()})
+			ew.pushExpr(&Ident{NamePos: Pos(token.at), Name: token.Value()})
 		case TYPE_OPERATOR:
 			switch token.Value() {
 			case "+", "-", "*", "/", "%", "==", ">=", "<=", ">", "<", "!=":
@@ -372,8 +372,8 @@ func (ew *ExprWraper) Wrap() Expr {
 
 func (ew *ExprWraper) revert(op *Token) {
 	if op.Type() == TYPE_NAME {
-		fun := &Ident{NamePos: Pos(op.At), Name: op.Value()}
-		call := &CallExpr{Fun: fun, Lparen: Pos(op.At + 1)}
+		fun := &Ident{NamePos: Pos(op.at), Name: op.Value()}
+		call := &CallExpr{Fun: fun, Lparen: Pos(op.at + 1)}
 		if _, ok := ew.peekExpr().(*ArgsExpr); ok {
 			args := ew.popExpr().(*ArgsExpr)
 			call.Args = args
@@ -430,12 +430,12 @@ func (ew *ExprWraper) popOp() (t *Token) {
 func waperBinary(op *Token, x1, x2 Expr) Expr {
 	switch op.Type() {
 	case TYPE_NAME:
-		fn := &Ident{NamePos: Pos(op.At), Name: op.Value()}
-		return &CallExpr{Fun: fn, Lparen: Pos(op.At + 1)}
+		fn := &Ident{NamePos: Pos(op.at), Name: op.Value()}
+		return &CallExpr{Fun: fn, Lparen: Pos(op.at + 1)}
 	case TYPE_OPERATOR:
 		switch op.Value() {
 		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==":
-			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.At), Op: op.Value()}, Y: x1}
+			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.at), Op: op.Value()}, Y: x1}
 		default:
 			panic(op.Value())
 		}

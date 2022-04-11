@@ -261,7 +261,7 @@ func (lex *Lexer) pushToken(typ int, value string) {
 	if typ == TYPE_TEXT && value == "" {
 		return
 	}
-	lex.tokens = append(lex.tokens, &Token{typ: typ, value: value, line: lex.lineno})
+	lex.tokens = append(lex.tokens, &Token{typ: typ, value: value, line: lex.lineno, at: lex.cursor})
 }
 
 func (lex *Lexer) moveCursor(n int) {
