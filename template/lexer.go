@@ -131,39 +131,41 @@ func (lex *lexer) lexNextPart() error {
 		case TAG_BLOCK[0]:
 			if subp, ok := startWith(reg_block_raw, lex.code, lex.cursor); ok {
 				lex.moveCursor(subp[1])
-				if subp, _ = startWith(reg_raw_data, lex.code, lex.cursor); len(subp) > 0 {
+				if subp = findStringIndex(reg_raw_data, lex.code, lex.cursor); len(subp) > 0 {
 					lex.pushToken(TYPE_STRING, lex.code[lex.cursor:subp[0]])
 					lex.moveCursor(subp[1])
+					return nil
 				}
-
-				if len(subp) == 0 {
-					return NewParseTemplateFaild(lex.tpl.name, lex.lineno)
-				}
-
+				return NewUnexpectedToken(lex.tpl.name, lex.code[position[0]:position[1]], lex.lineno)
 			} else {
 				lex.pushToken(TYPE_BLOCK_START, "")
-				lex.LexRegData(reg_block, TAG_BLOCK[0])
+				if err := lex.LexRegData(reg_block); err != nil {
+					return err
+				}
 				lex.pushToken(TYPE_BLOCK_END, "")
+				return nil
 			}
 		case TAG_VARIABLE[0]:
 			lex.pushToken(TYPE_VAR_START, "")
-			lex.LexRegData(reg_variable, TAG_VARIABLE[0])
+			if err := lex.LexRegData(reg_variable); err != nil {
+				return err
+			}
 			lex.pushToken(TYPE_VAR_END, "")
+			return nil
 		}
 	}
 	return nil
 }
 
 func (lex *lexer) lexComment() error {
-	if !reg_comment.MatchString(lex.code[lex.cursor:]) {
-		return NewParseTemplateFaild(lex.tpl.name, lex.lineno)
+	if p := findStringIndex(reg_comment, lex.code, lex.cursor); len(p) > 0 {
+		lex.moveCursor(p[1])
+		return nil
 	}
-	position := findStringIndex(reg_comment, lex.code, lex.cursor)
-	lex.moveCursor(position[1])
-	return nil
+	return NewParseTemplateFaild(lex.tpl.name, lex.lineno)
 }
 
-func (lex *lexer) LexRegData(reg *regexp.Regexp, tag string) error {
+func (lex *lexer) LexRegData(reg *regexp.Regexp) error {
 	if !reg.MatchString(lex.code[lex.cursor:]) {
 		return NewParseTemplateFaild(lex.tpl.name, lex.lineno)
 	}
@@ -265,15 +267,14 @@ func (lex *lexer) moveCursor(n int) {
 }
 
 func startWith(reg *regexp.Regexp, str string, offset int) ([]int, bool) {
-	position := reg.FindStringIndex(str[offset:])
+	position := findStringIndex(reg, str, offset)
 	if len(position) == 0 {
 		return []int{}, false
 	}
-	op := []int{position[0] + offset, position[1] + offset}
-	if position[0] == 0 {
-		return op, true
+	if position[0] == offset {
+		return position, true
 	}
-	return op, false
+	return position, false
 }
 
 func findStringIndex(reg *regexp.Regexp, str string, offset int) []int {
