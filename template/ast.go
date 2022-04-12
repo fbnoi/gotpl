@@ -176,11 +176,11 @@ type (
 
 	// A RangeStmt represents a for statement with a range clause.
 	RangeStmt struct {
-		For        Pos    // position of "for" keyword
-		Key, Value Expr   // Key, Value may be nil
-		TokPos     Pos    // position of Tok; invalid if Key == nil
-		Tok        string // ILLEGAL if Key == nil, ASSIGN, DEFINE
-		X          Expr   // value to range over
+		For        Pos  // position of "for" keyword
+		Key, Value Expr // Key, Value may be nil
+		TokPos     Pos  // position of Tok; invalid if Key == nil
+		Tok        string
+		X          Expr // value to range over
 		Body       *SectionStmt
 	}
 

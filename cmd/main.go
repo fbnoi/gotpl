@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"strings"
 
 	"fbnoi.com/gotpl/template"
 )
@@ -18,33 +20,9 @@ import (
 // }
 
 func main() {
-	html := `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-	<meta charset="UTF-8">
-	<meta http-equiv="X-UA-Compatible" content="IE=edge">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>{{ title }}</title>
-</head>
-<body>
-	{% if a==1 %}
-	text in if
-	{% elseif c >= d %}
-	text in else if
-	{% endif %}
-</body>
-</html>
-	`
-	source := template.NewSource(html)
-	codes := source.Overview(15)
-	for _, code := range codes {
-		if code.Highlight {
-			fmt.Printf("-->\t%d:\t%s\n", code.Num, code.Code)
-		} else {
-			fmt.Printf("\t%d:\t%s\n", code.Num, code.Code)
-		}
+	sb := &strings.Builder{}
+	if err := template.Render(sb, "./test.html"); err != nil {
+		log.Println(err)
 	}
-
-	fmt.Println()
+	fmt.Println(sb.String())
 }

@@ -126,11 +126,14 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 func (filter *TokenFilter) parseFor(token *Token) {
 	fs := &ForStmt{For: Pos(token.at)}
 	var tss [][]*Token
-	for !filter.Stream.IsEOF() {
+	for !filter.Stream.IsEOF() && token.Type() != TYPE_BLOCK_END {
 		var ts []*Token
-		token := filter.Stream.Next()
-		for token.Value() != ";" && token.Type() != TYPE_EOF {
+		token = filter.Stream.Next()
+		for token.Value() != ";" &&
+			token.Type() != TYPE_EOF &&
+			token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
+			token = filter.Stream.Next()
 		}
 		tss = append(tss, ts)
 	}

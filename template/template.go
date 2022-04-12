@@ -1,6 +1,7 @@
 package template
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -110,7 +111,8 @@ func (t *Template) ParseString(tpl string) error {
 }
 
 func (t *Template) Execute(data ...any) []byte {
-	return nil
+	ds, _ := json.MarshalIndent(t.Tr, "tpl", "····")
+	return ds
 }
 
 func (t *Template) update() error {
