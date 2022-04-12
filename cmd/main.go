@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"fbnoi.com/gotpl/template"
@@ -37,11 +36,15 @@ func main() {
 </body>
 </html>
 	`
+	source := template.NewSource(html)
+	codes := source.Overview(15)
+	for _, code := range codes {
+		if code.Highlight {
+			fmt.Printf("-->\t%d:\t%s\n", code.Num, code.Code)
+		} else {
+			fmt.Printf("\t%d:\t%s\n", code.Num, code.Code)
+		}
+	}
 
-	stream, _ := template.NewLexer().Tokenize(html)
-	filter := &template.TokenFilter{Tr: &template.Tree{}}
-	tree := filter.Filter(stream)
-	ds, _ := json.MarshalIndent(tree, "", "····")
-
-	fmt.Println(string(ds))
+	fmt.Println()
 }
