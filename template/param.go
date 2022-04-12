@@ -2,7 +2,7 @@ package template
 
 type kv struct {
 	Key   string
-	Value interface{}
+	Value any
 }
 
 func KS(kvs ...kv) Params {
@@ -13,13 +13,13 @@ func KS(kvs ...kv) Params {
 	return p
 }
 
-func KV(key string, value interface{}) *kv {
+func KV(key string, value any) *kv {
 	return &kv{Key: key, Value: value}
 }
 
-type Params map[string]interface{}
+type Params map[string]any
 
-func (p Params) Set(name string, val interface{}) string {
+func (p Params) Set(name string, val any) string {
 	if _, ok := p[name]; ok {
 		panic("")
 	}

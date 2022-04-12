@@ -26,8 +26,8 @@ var (
 	reg_variable = regexp.MustCompile(fmt.Sprintf(`\s*%s`, TAG_VARIABLE[1]))
 	// %}
 	reg_block = regexp.MustCompile(fmt.Sprintf(`\s*%s`, TAG_BLOCK[1]))
-	// {% endverbatim %}
-	reg_raw_data = regexp.MustCompile(fmt.Sprintf(`%s\s*endverbatim\s*%s`, TAG_BLOCK[0], TAG_BLOCK[1]))
+	// {% Endverbatim %}
+	reg_raw_data = regexp.MustCompile(fmt.Sprintf(`%s\s*Endverbatim\s*%s`, TAG_BLOCK[0], TAG_BLOCK[1]))
 	// #}
 	reg_comment = regexp.MustCompile(fmt.Sprintf(`\s*%s`, TAG_COMMENT[1]))
 	// verbatim %}
@@ -52,67 +52,67 @@ var (
 	reg_string = regexp.MustCompile(`"([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)'`)
 )
 
-type bracket struct {
+type Bracket struct {
 	ch   string
-	line int
+	Line int
 }
 
-func (b *bracket) String() string {
-	return fmt.Sprintf("%s at line %d", b.ch, b.line)
+func (b *Bracket) String() string {
+	return fmt.Sprintf("%s at line %d", b.ch, b.Line)
 }
 
-func Lexer() *lexer {
-	return &lexer{}
+func NewLexer() *Lexer {
+	return &Lexer{}
 }
 
-type lexer struct {
-	tpl    *Template
-	tokens []*Token
-	code   string
-	cursor int
-	line   int
-	end    int
-	posIdx int
-	poss   [][]int
+type Lexer struct {
+	Tpl    *Template
+	Tokens []*Token
+	Code   string
+	Cursor int
+	Line   int
+	End    int
+	PosIdx int
+	Poss   [][]int
 }
 
-func (lex *lexer) Tokenize(str string) (*TokenStream, error) {
-	lex.code = reg_enter.ReplaceAllString(str, "\n")
-	lex.cursor = 0
-	lex.line = 1
-	lex.end = len(lex.code)
-	lex.posIdx = -1
-	lex.poss = reg_token_start.FindAllStringIndex(lex.code, -1)
-	if len(lex.poss) == 0 {
-		lex.pushToken(TYPE_TEXT, lex.code[lex.cursor:])
-		lex.cursor = lex.end
+func (lex *Lexer) Tokenize(str string) (*TokenStream, error) {
+	lex.Code = reg_enter.ReplaceAllString(str, "\n")
+	lex.Cursor = 0
+	lex.Line = 1
+	lex.End = len(lex.Code)
+	lex.PosIdx = -1
+	lex.Poss = reg_token_start.FindAllStringIndex(lex.Code, -1)
+	if len(lex.Poss) == 0 {
+		lex.pushToken(TYPE_TEXT, lex.Code[lex.Cursor:])
+		lex.Cursor = lex.End
 	}
 
-	for lex.posIdx < len(lex.poss)-1 {
-		lex.posIdx++
+	for lex.PosIdx < len(lex.Poss)-1 {
+		lex.PosIdx++
 		if err := lex.lexNextPart(); err != nil {
 			return nil, err
 		}
 	}
-	if lex.cursor < lex.end {
-		lex.pushToken(TYPE_TEXT, lex.code[lex.cursor:lex.end])
+	if lex.Cursor < lex.End {
+		lex.pushToken(TYPE_TEXT, lex.Code[lex.Cursor:lex.End])
 	}
 	lex.pushToken(TYPE_EOF, "")
-	return &TokenStream{tokens: lex.tokens}, nil
+	return &TokenStream{tokens: lex.Tokens}, nil
 }
 
-func (lex *lexer) lexNextPart() error {
-	pos := lex.poss[lex.posIdx]
-	if pos[0] < lex.cursor {
+func (lex *Lexer) lexNextPart() error {
+	pos := lex.Poss[lex.PosIdx]
+	if pos[0] < lex.Cursor {
 		return nil
-	} else if pos[0] > lex.cursor {
-		lex.pushToken(TYPE_TEXT, lex.code[lex.cursor:pos[0]])
+	} else if pos[0] > lex.Cursor {
+		lex.pushToken(TYPE_TEXT, lex.Code[lex.Cursor:pos[0]])
 	}
 	lex.moveCursor(pos[1])
 	switch pos[1] - pos[0] {
 	case 3:
 		var reg *regexp.Regexp
-		switch lex.code[pos[0]+1 : pos[1]] {
+		switch lex.Code[pos[0]+1 : pos[1]] {
 		case TAG_COMMENT[0]:
 			reg = reg_comment
 		case TAG_BLOCK[0]:
@@ -120,25 +120,25 @@ func (lex *lexer) lexNextPart() error {
 		case TAG_VARIABLE[0]:
 			reg = reg_variable
 		}
-		if subp, ok := startWith(reg, lex.code, lex.cursor); ok {
-			lex.pushToken(TYPE_TEXT, lex.code[pos[0]+1:subp[1]])
+		if subp, ok := startWith(reg, lex.Code, lex.Cursor); ok {
+			lex.pushToken(TYPE_TEXT, lex.Code[pos[0]+1:subp[1]])
 			lex.moveCursor(subp[1])
 			return nil
 		}
-		return NewUnexpectedToken(lex.tpl.Name, lex.code[pos[0]:pos[1]], lex.line)
+		return NewUnexpectedToken(lex.Tpl.Name, lex.Code[pos[0]:pos[1]], lex.Line)
 	case 2:
-		switch lex.code[pos[0]:pos[1]] {
+		switch lex.Code[pos[0]:pos[1]] {
 		case TAG_COMMENT[0]:
 			return lex.lexComment()
 		case TAG_BLOCK[0]:
-			if subp, ok := startWith(reg_block_raw, lex.code, lex.cursor); ok {
+			if subp, ok := startWith(reg_block_raw, lex.Code, lex.Cursor); ok {
 				lex.moveCursor(subp[1])
-				if subp = findStringIndex(reg_raw_data, lex.code, lex.cursor); len(subp) > 0 {
-					lex.pushToken(TYPE_STRING, lex.code[lex.cursor:subp[0]])
+				if subp = findStringIndex(reg_raw_data, lex.Code, lex.Cursor); len(subp) > 0 {
+					lex.pushToken(TYPE_STRING, lex.Code[lex.Cursor:subp[0]])
 					lex.moveCursor(subp[1])
 					return nil
 				}
-				return NewUnexpectedToken(lex.tpl.Name, lex.code[pos[0]:pos[1]], lex.line)
+				return NewUnexpectedToken(lex.Tpl.Name, lex.Code[pos[0]:pos[1]], lex.Line)
 			} else {
 				lex.pushToken(TYPE_BLOCK_START, "")
 				if err := lex.LexRegData(reg_block); err != nil {
@@ -159,106 +159,106 @@ func (lex *lexer) lexNextPart() error {
 	return nil
 }
 
-func (lex *lexer) lexComment() error {
-	if p := findStringIndex(reg_comment, lex.code, lex.cursor); len(p) > 0 {
+func (lex *Lexer) lexComment() error {
+	if p := findStringIndex(reg_comment, lex.Code, lex.Cursor); len(p) > 0 {
 		lex.moveCursor(p[1])
 		return nil
 	}
-	return NewParseTemplateFaild(lex.tpl.Name, lex.line)
+	return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
 }
 
-func (lex *lexer) LexRegData(reg *regexp.Regexp) error {
-	if !reg.MatchString(lex.code[lex.cursor:]) {
-		return NewParseTemplateFaild(lex.tpl.Name, lex.line)
+func (lex *Lexer) LexRegData(reg *regexp.Regexp) error {
+	if !reg.MatchString(lex.Code[lex.Cursor:]) {
+		return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
 	}
 	lex.lexExpression(reg)
 	return nil
 }
 
-func (lex *lexer) lexExpression(reg *regexp.Regexp) error {
-	pos := findStringIndex(reg, lex.code, lex.cursor)
-	var brackets []*bracket
+func (lex *Lexer) lexExpression(reg *regexp.Regexp) error {
+	pos := findStringIndex(reg, lex.Code, lex.Cursor)
+	var brackets []*Bracket
 
-	for lex.cursor < pos[0] {
+	for lex.Cursor < pos[0] {
 		// whitespace
-		if subp, ok := startWith(reg_whitespace, lex.code[:pos[0]], lex.cursor); ok {
+		if subp, ok := startWith(reg_whitespace, lex.Code[:pos[0]], lex.Cursor); ok {
 			lex.moveCursor(subp[1])
 		}
 		// operator
-		if subp, ok := startWith(reg_operator, lex.code[:pos[0]], lex.cursor); ok {
-			lex.pushToken(TYPE_OPERATOR, lex.code[lex.cursor:subp[1]])
+		if subp, ok := startWith(reg_operator, lex.Code[:pos[0]], lex.Cursor); ok {
+			lex.pushToken(TYPE_OPERATOR, lex.Code[lex.Cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// name
-		} else if subp, ok := startWith(reg_name, lex.code[:pos[0]], lex.cursor); ok {
-			lex.pushToken(TYPE_NAME, lex.code[lex.cursor:subp[1]])
+		} else if subp, ok := startWith(reg_name, lex.Code[:pos[0]], lex.Cursor); ok {
+			lex.pushToken(TYPE_NAME, lex.Code[lex.Cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// number
-		} else if subp, ok := startWith(reg_number, lex.code[:pos[0]], lex.cursor); ok {
-			lex.pushToken(TYPE_NUMBER, lex.code[lex.cursor:subp[1]])
+		} else if subp, ok := startWith(reg_number, lex.Code[:pos[0]], lex.Cursor); ok {
+			lex.pushToken(TYPE_NUMBER, lex.Code[lex.Cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// string
-		} else if subp, ok := startWith(reg_string, lex.code[:pos[0]], lex.cursor); ok {
-			lex.pushToken(TYPE_STRING, lex.code[lex.cursor:subp[1]])
+		} else if subp, ok := startWith(reg_string, lex.Code[:pos[0]], lex.Cursor); ok {
+			lex.pushToken(TYPE_STRING, lex.Code[lex.Cursor:subp[1]])
 			lex.moveCursor(subp[1])
 
 			// punctuation
-		} else if _, ok := startWith(reg_punctuation, lex.code[:pos[0]], lex.cursor); ok {
+		} else if _, ok := startWith(reg_punctuation, lex.Code[:pos[0]], lex.Cursor); ok {
 			var (
 				subp []int
 				ok   bool
 			)
 			// bracket open
-			if subp, ok = startWith(reg_bracket_open, lex.code[:pos[0]], lex.cursor); ok {
-				brackets = append(brackets, &bracket{ch: lex.code[subp[0]:subp[1]], line: lex.line})
+			if subp, ok = startWith(reg_bracket_open, lex.Code[:pos[0]], lex.Cursor); ok {
+				brackets = append(brackets, &Bracket{ch: lex.Code[subp[0]:subp[1]], Line: lex.Line})
 
 				// bracket close
-			} else if subp, ok = startWith(reg_bracket_close, lex.code[:pos[0]], lex.cursor); ok {
+			} else if subp, ok = startWith(reg_bracket_close, lex.Code[:pos[0]], lex.Cursor); ok {
 				if len(brackets) == 0 {
-					return NewParseTemplateFaild(lex.tpl.Name, lex.line)
+					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
 				}
 				b := brackets[len(brackets)-1]
 				switch {
-				case b.ch == "{" && lex.code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.tpl.Name, lex.line)
-				case b.ch == "(" && lex.code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.tpl.Name, lex.line)
-				case b.ch == "[" && lex.code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.tpl.Name, lex.line)
+				case b.ch == "{" && lex.Code[subp[0]:subp[1]] != "}":
+					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+				case b.ch == "(" && lex.Code[subp[0]:subp[1]] != "}":
+					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+				case b.ch == "[" && lex.Code[subp[0]:subp[1]] != "}":
+					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
 				}
 				brackets = brackets[:len(brackets)-1]
 			} else {
-				subp = findStringIndex(reg_punctuation, lex.code[:pos[0]], lex.cursor)
+				subp = findStringIndex(reg_punctuation, lex.Code[:pos[0]], lex.Cursor)
 			}
-			lex.pushToken(TYPE_PUNCTUATION, lex.code[lex.cursor:subp[1]])
+			lex.pushToken(TYPE_PUNCTUATION, lex.Code[lex.Cursor:subp[1]])
 			if len(subp) > 0 {
 				lex.moveCursor(subp[1])
 			}
 		} else {
 			// unkown token
-			return NewUnexpectedToken(lex.tpl.Name, lex.code[lex.cursor:pos[0]], brackets[0].line)
+			return NewUnexpectedToken(lex.Tpl.Name, lex.Code[lex.Cursor:pos[0]], brackets[0].Line)
 		}
 	}
 
 	if len(brackets) > 0 {
-		return NewUnexpectedToken(lex.tpl.Name, brackets[0].ch, brackets[0].line)
+		return NewUnexpectedToken(lex.Tpl.Name, brackets[0].ch, brackets[0].Line)
 	}
 	lex.moveCursor(pos[1])
 	return nil
 }
 
-func (lex *lexer) pushToken(typ int, value string) {
+func (lex *Lexer) pushToken(typ int, value string) {
 	if typ == TYPE_TEXT && value == "" {
 		return
 	}
-	lex.tokens = append(lex.tokens, &Token{typ: typ, value: value, line: lex.line, at: lex.cursor})
+	lex.Tokens = append(lex.Tokens, &Token{typ: typ, value: value, line: lex.Line, at: lex.Cursor})
 }
 
-func (lex *lexer) moveCursor(n int) {
-	lex.line += len(reg_enter.FindAllString(lex.code[lex.cursor:n], -1))
-	lex.cursor = n
+func (lex *Lexer) moveCursor(n int) {
+	lex.Line += len(reg_enter.FindAllString(lex.Code[lex.Cursor:n], -1))
+	lex.Cursor = n
 }
 
 func startWith(reg *regexp.Regexp, str string, offset int) ([]int, bool) {

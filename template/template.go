@@ -96,7 +96,7 @@ func (t *Template) readFile(path string) (string, error) {
 
 func (t *Template) Parse(tpl string) (err error) {
 	var stream *TokenStream
-	stream, err = Lexer().Tokenize(tpl)
+	stream, err = NewLexer().Tokenize(tpl)
 	if err == nil {
 		filter := &TokenFilter{Tr: &Tree{}}
 		t.Tr = filter.Filter(stream)

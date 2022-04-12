@@ -15,13 +15,13 @@ type Tree struct {
 
 type TokenFilter struct {
 	Tr     *Tree
-	cursor Stmt
-	stream *TokenStream
-	stack  []Stmt
+	Cursor Stmt
+	Stream *TokenStream
+	Stack  []Stmt
 }
 
 func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
-	filter.stream = stream
+	filter.Stream = stream
 	for !stream.IsEOF() {
 		token := stream.Next()
 		switch token.Type() {
@@ -68,8 +68,8 @@ func (filter *TokenFilter) parseText(token *Token) {
 func (filter *TokenFilter) parseVar(token *Token) {
 	vs := &ValueStmt{}
 	var ts []*Token
-	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_VAR_END {
+	for !filter.Stream.IsEOF() {
+		if token := filter.Stream.Next(); token.Type() != TYPE_VAR_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -82,8 +82,8 @@ func (filter *TokenFilter) parseVar(token *Token) {
 func (filter *TokenFilter) parseIf(token *Token) {
 	is := &IfStmt{If: Pos(token.at)}
 	var ts []*Token
-	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.Stream.IsEOF() {
+		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -96,7 +96,7 @@ func (filter *TokenFilter) parseIf(token *Token) {
 
 func (filter *TokenFilter) parseElse(token *Token) {
 	es := &SectionStmt{}
-	if st, ok := filter.cursor.(*IfStmt); ok {
+	if st, ok := filter.Cursor.(*IfStmt); ok {
 		st.Else = es
 	} else {
 		panic("")
@@ -107,15 +107,15 @@ func (filter *TokenFilter) parseElse(token *Token) {
 func (filter *TokenFilter) parseElseIf(token *Token) {
 	efs := &IfStmt{}
 	var ts []*Token
-	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.Stream.IsEOF() {
+		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
 		}
 	}
 	efs.Cond = filter.internelExpr(ts)
-	if st, ok := filter.cursor.(*IfStmt); ok {
+	if st, ok := filter.Cursor.(*IfStmt); ok {
 		st.Else = efs
 	} else {
 		panic("")
@@ -126,9 +126,9 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 func (filter *TokenFilter) parseFor(token *Token) {
 	fs := &ForStmt{For: Pos(token.at)}
 	var tss [][]*Token
-	for !filter.stream.IsEOF() {
+	for !filter.Stream.IsEOF() {
 		var ts []*Token
-		token := filter.stream.Next()
+		token := filter.Stream.Next()
 		for token.Value() != ";" && token.Type() != TYPE_EOF {
 			ts = append(ts, token)
 		}
@@ -147,11 +147,11 @@ func (filter *TokenFilter) parseFor(token *Token) {
 
 func (filter *TokenFilter) parseRange(token *Token) {
 	rs := &RangeStmt{For: Pos(token.at)}
-	keyToken := filter.stream.Next()
+	keyToken := filter.Stream.Next()
 	rs.Key = &Ident{NamePos: Pos(keyToken.at), Name: keyToken.Value()}
-	valueToken := filter.stream.Next()
+	valueToken := filter.Stream.Next()
 	if valueToken.Value() == "," {
-		valueToken = filter.stream.Next()
+		valueToken = filter.Stream.Next()
 	} else if valueToken.Value() == "=" {
 		valueToken = nil
 	}
@@ -174,8 +174,8 @@ func (filter *TokenFilter) parseBlock(token *Token) {
 
 func (filter *TokenFilter) parseSet(token *Token) {
 	var ts []*Token
-	for !filter.stream.IsEOF() {
-		if token := filter.stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.Stream.IsEOF() {
+		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -211,19 +211,19 @@ func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
 }
 
 func (filter *TokenFilter) append(s Stmt) {
-	if filter.cursor == nil {
+	if filter.Cursor == nil {
 		filter.Tr.List = append(filter.Tr.List, s)
-	} else if st, ok := filter.cursor.(*IfStmt); ok {
+	} else if st, ok := filter.Cursor.(*IfStmt); ok {
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
 		st.Body.List = append(st.Body.List, s)
-	} else if st, ok := filter.cursor.(*RangeStmt); ok {
+	} else if st, ok := filter.Cursor.(*RangeStmt); ok {
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
 		st.Body.List = append(st.Body.List, s)
-	} else if st, ok := filter.cursor.(*ForStmt); ok {
+	} else if st, ok := filter.Cursor.(*ForStmt); ok {
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
@@ -234,71 +234,71 @@ func (filter *TokenFilter) append(s Stmt) {
 }
 
 func (filter *TokenFilter) popBlock() {
-	_, ok := filter.cursor.(*BlockStmt)
+	_, ok := filter.Cursor.(*BlockStmt)
 	for !ok {
-		filter.cursor = filter.pop()
-		_, ok = filter.cursor.(*BlockStmt)
+		filter.Cursor = filter.pop()
+		_, ok = filter.Cursor.(*BlockStmt)
 	}
-	filter.cursor = filter.pop()
+	filter.Cursor = filter.pop()
 }
 
 func (filter *TokenFilter) popRange() {
-	_, ok := filter.cursor.(*RangeStmt)
+	_, ok := filter.Cursor.(*RangeStmt)
 	for !ok {
-		filter.cursor = filter.pop()
-		_, ok = filter.cursor.(*RangeStmt)
+		filter.Cursor = filter.pop()
+		_, ok = filter.Cursor.(*RangeStmt)
 	}
-	filter.cursor = filter.pop()
+	filter.Cursor = filter.pop()
 }
 
 func (filter *TokenFilter) popFor() {
-	_, ok := filter.cursor.(*ForStmt)
+	_, ok := filter.Cursor.(*ForStmt)
 	for !ok {
-		filter.cursor = filter.pop()
-		_, ok = filter.cursor.(*ForStmt)
+		filter.Cursor = filter.pop()
+		_, ok = filter.Cursor.(*ForStmt)
 	}
-	filter.cursor = filter.pop()
+	filter.Cursor = filter.pop()
 }
 
 func (filter *TokenFilter) popIf() {
-	_, ok := filter.cursor.(*IfStmt)
+	_, ok := filter.Cursor.(*IfStmt)
 	for !ok {
-		filter.cursor = filter.pop()
-		_, ok = filter.cursor.(*IfStmt)
+		filter.Cursor = filter.pop()
+		_, ok = filter.Cursor.(*IfStmt)
 	}
-	filter.cursor = filter.pop()
+	filter.Cursor = filter.pop()
 }
 
 func (filter *TokenFilter) pop() Stmt {
-	if len(filter.stack) == 0 {
-		if filter.cursor == nil {
+	if len(filter.Stack) == 0 {
+		if filter.Cursor == nil {
 			panic("")
 		}
 		return nil
 	}
-	n := filter.stack[len(filter.stack)-1]
-	filter.stack = filter.stack[:len(filter.stack)-1]
+	n := filter.Stack[len(filter.Stack)-1]
+	filter.Stack = filter.Stack[:len(filter.Stack)-1]
 	return n
 }
 
 func (filter *TokenFilter) push(s Stmt) {
-	if filter.cursor != nil {
-		filter.stack = append(filter.stack, filter.cursor)
+	if filter.Cursor != nil {
+		filter.Stack = append(filter.Stack, filter.Cursor)
 	}
-	filter.cursor = s
+	filter.Cursor = s
 }
 
 func (filter *TokenFilter) internelExpr(ts []*Token) Expr {
 
-	return (&exprWraper{}).Wrap(ts)
+	return (&ExprWraper{}).Wrap(ts)
 }
 
-type exprWraper struct {
+type ExprWraper struct {
 	eStack  []Expr
 	opStack []*Token
 }
 
-func (ew *exprWraper) Wrap(stream []*Token) Expr {
+func (ew *ExprWraper) Wrap(stream []*Token) Expr {
 	for i := 0; i < len(stream); i++ {
 		token := stream[i]
 		switch token.Type() {
@@ -365,7 +365,7 @@ func (ew *exprWraper) Wrap(stream []*Token) Expr {
 	return expr
 }
 
-func (ew *exprWraper) revert(op *Token) {
+func (ew *ExprWraper) revert(op *Token) {
 	if op.Type() == TYPE_NAME {
 		fun := &Ident{NamePos: Pos(op.at), Name: op.Value()}
 		call := &CallExpr{Fun: fun, Lparen: Pos(op.at + 1)}
@@ -382,18 +382,18 @@ func (ew *exprWraper) revert(op *Token) {
 	ew.pushExpr(waperBinary(op, ew.popExpr(), ew.popExpr()))
 }
 
-func (ew *exprWraper) peekExpr() Expr {
+func (ew *ExprWraper) peekExpr() Expr {
 	if len(ew.eStack) == 0 {
 		panic("Resolve Expr failed, try to peek empty expression stack")
 	}
 	return ew.eStack[len(ew.eStack)-1]
 }
 
-func (ew *exprWraper) pushExpr(e Expr) {
+func (ew *ExprWraper) pushExpr(e Expr) {
 	ew.eStack = append(ew.eStack, e)
 }
 
-func (ew *exprWraper) popExpr() Expr {
+func (ew *ExprWraper) popExpr() Expr {
 	if len(ew.eStack) == 0 {
 		panic("Resolve Expr failed, try to pop empty expression stack")
 	}
@@ -402,18 +402,18 @@ func (ew *exprWraper) popExpr() Expr {
 	return t
 }
 
-func (ew *exprWraper) peekOp() *Token {
+func (ew *ExprWraper) peekOp() *Token {
 	if len(ew.opStack) == 0 {
 		panic("Resolve Expr failed, try to peek empty oprator stack")
 	}
 	return ew.opStack[len(ew.opStack)-1]
 }
 
-func (ew *exprWraper) pushOp(op *Token) {
+func (ew *ExprWraper) pushOp(op *Token) {
 	ew.opStack = append(ew.opStack, op)
 }
 
-func (ew *exprWraper) popOp() (t *Token) {
+func (ew *ExprWraper) popOp() (t *Token) {
 	if len(ew.opStack) == 0 {
 		panic("Resolve Expr failed, try to pop empty oprator stack")
 	}
