@@ -66,7 +66,7 @@ func NewLexer() *Lexer {
 }
 
 type Lexer struct {
-	Tpl    *Template
+	Source *Source
 	Tokens []*Token
 	Code   string
 	Cursor int
@@ -76,8 +76,9 @@ type Lexer struct {
 	Poss   [][]int
 }
 
-func (lex *Lexer) Tokenize(str string) (*TokenStream, error) {
-	lex.Code = reg_enter.ReplaceAllString(str, "\n")
+func (lex *Lexer) Tokenize(src *Source) (*TokenStream, error) {
+	lex.Source = src
+	lex.Code = reg_enter.ReplaceAllString(src.Code, "\n")
 	lex.Cursor = 0
 	lex.Line = 1
 	lex.End = len(lex.Code)
@@ -125,7 +126,7 @@ func (lex *Lexer) lexNextPart() error {
 			lex.moveCursor(subp[1])
 			return nil
 		}
-		return NewUnexpectedToken(lex.Tpl.Name, lex.Code[pos[0]:pos[1]], lex.Line)
+		return NewUnexpectedToken(lex.Source, lex.Line, lex.Code[pos[0]:pos[1]])
 	case 2:
 		switch lex.Code[pos[0]:pos[1]] {
 		case TAG_COMMENT[0]:
@@ -138,7 +139,7 @@ func (lex *Lexer) lexNextPart() error {
 					lex.moveCursor(subp[1])
 					return nil
 				}
-				return NewUnexpectedToken(lex.Tpl.Name, lex.Code[pos[0]:pos[1]], lex.Line)
+				return NewUnexpectedToken(lex.Source, lex.Line, lex.Code[pos[0]:pos[1]])
 			} else {
 				lex.pushToken(TYPE_BLOCK_START, "")
 				if err := lex.LexRegData(reg_block); err != nil {
@@ -164,12 +165,12 @@ func (lex *Lexer) lexComment() error {
 		lex.moveCursor(p[1])
 		return nil
 	}
-	return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+	return NewParseTemplateFaild(lex.Source, lex.Line)
 }
 
 func (lex *Lexer) LexRegData(reg *regexp.Regexp) error {
 	if !reg.MatchString(lex.Code[lex.Cursor:]) {
-		return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+		return NewParseTemplateFaild(lex.Source, lex.Line)
 	}
 	lex.lexExpression(reg)
 	return nil
@@ -217,16 +218,16 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) error {
 				// bracket close
 			} else if subp, ok = startWith(reg_bracket_close, lex.Code[:pos[0]], lex.Cursor); ok {
 				if len(brackets) == 0 {
-					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+					return NewParseTemplateFaild(lex.Source, lex.Line)
 				}
 				b := brackets[len(brackets)-1]
 				switch {
 				case b.ch == "{" && lex.Code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+					return NewParseTemplateFaild(lex.Source, lex.Line)
 				case b.ch == "(" && lex.Code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+					return NewParseTemplateFaild(lex.Source, lex.Line)
 				case b.ch == "[" && lex.Code[subp[0]:subp[1]] != "}":
-					return NewParseTemplateFaild(lex.Tpl.Name, lex.Line)
+					return NewParseTemplateFaild(lex.Source, lex.Line)
 				}
 				brackets = brackets[:len(brackets)-1]
 			} else {
@@ -238,12 +239,12 @@ func (lex *Lexer) lexExpression(reg *regexp.Regexp) error {
 			}
 		} else {
 			// unkown token
-			return NewUnexpectedToken(lex.Tpl.Name, lex.Code[lex.Cursor:pos[0]], brackets[0].Line)
+			return NewUnexpectedToken(lex.Source, brackets[0].Line, lex.Code[lex.Cursor:pos[0]])
 		}
 	}
 
 	if len(brackets) > 0 {
-		return NewUnexpectedToken(lex.Tpl.Name, brackets[0].ch, brackets[0].Line)
+		return NewUnexpectedToken(lex.Source, brackets[0].Line, brackets[0].ch)
 	}
 	lex.moveCursor(pos[1])
 	return nil

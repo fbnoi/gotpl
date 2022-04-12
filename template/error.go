@@ -3,38 +3,49 @@ package template
 import "fmt"
 
 type UnexpectedEndOfFile struct {
-	Path string
+	Source  *Source
+	Line    int
+	Message string
 }
 type UnexpectedToken struct {
-	Path  string
-	Token string
-	Line  int
+	Source  *Source
+	Line    int
+	Message string
 }
 type ParseTemplateFaild struct {
-	Path string
-	Line int
+	Source  *Source
+	Line    int
+	Message string
 }
 
-func (e UnexpectedEndOfFile) Error() string {
-	return fmt.Sprintf("un expected end of file at file:%s", e.Path)
+func (e *UnexpectedEndOfFile) Error() string { return e.Message }
+func (e *UnexpectedToken) Error() string     { return e.Message }
+func (e *ParseTemplateFaild) Error() string  { return e.Message }
+
+func (e *UnexpectedEndOfFile) Overview() []*Line { return e.Source.Overview(e.Line) }
+func (e *UnexpectedToken) Overview() []*Line     { return e.Source.Overview(e.Line) }
+func (e *ParseTemplateFaild) Overview() []*Line  { return e.Source.Overview(e.Line) }
+
+func NewUnexpectedEndOfFile(src *Source, line int, tok string) *UnexpectedEndOfFile {
+	return &UnexpectedEndOfFile{
+		Source:  src,
+		Line:    line,
+		Message: fmt.Sprintf("unexpected EOF at line: %s", line),
+	}
 }
 
-func (e UnexpectedToken) Error() string {
-	return fmt.Sprintf("un expected token \"%s\" at file:%s:%d", e.Token, e.Path, e.Line)
+func NewUnexpectedToken(src *Source, line int, tok string) *UnexpectedToken {
+	return &UnexpectedToken{
+		Source:  src,
+		Line:    line,
+		Message: fmt.Sprintf("unexpected token at line: %s", line),
+	}
 }
 
-func (e ParseTemplateFaild) Error() string {
-	return fmt.Sprintf("Parse Template Faild at file:%s:%d", e.Path, e.Line)
-}
-
-func NewUnexpectedEndOfFile(path string) UnexpectedEndOfFile {
-	return UnexpectedEndOfFile{path}
-}
-
-func NewUnexpectedToken(path, tok string, line int) UnexpectedToken {
-	return UnexpectedToken{path, tok, line}
-}
-
-func NewParseTemplateFaild(path string, line int) ParseTemplateFaild {
-	return ParseTemplateFaild{path, line}
+func NewParseTemplateFaild(src *Source, line int) *ParseTemplateFaild {
+	return &ParseTemplateFaild{
+		Source:  src,
+		Line:    line,
+		Message: "parse template failed",
+	}
 }

@@ -3,7 +3,6 @@ package template
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 	"time"
@@ -15,8 +14,13 @@ var (
 	defaultTemplates = &Templates{
 		Cache:  make(map[string]*Template),
 		Lock:   &sync.RWMutex{},
-		Update: make(chan *Template),
+		Update: make(chan *Template, 20),
 	}
+)
+
+const (
+	TPL_TYPE_FILE = iota
+	TPL_TYPE_STRING
 )
 
 type Config struct {
@@ -33,20 +37,18 @@ func (ts *Templates) Watch() {
 	for {
 		select {
 		case <-timer.C:
-			for _, Template := range ts.Cache {
-				go ts.checkVersion(Template)
+			for _, t := range ts.Cache {
+				go ts.checkVersion(t)
 			}
 		case t := <-ts.Update:
-			t.Update()
+			t.update()
 		}
 	}
 }
 
 func (ts *Templates) checkVersion(t *Template) {
-	if info, err := os.Stat(t.Name); err == nil {
-		if info.ModTime().After(t.LastParseTime) {
-			ts.Update <- t
-		}
+	if t.checkVersion() {
+		ts.Update <- t
 	}
 }
 
@@ -55,18 +57,10 @@ func (ts *Templates) hasTemplate(view string) bool {
 	return ok
 }
 
-func (ts *Templates) addTemplate(view string) error {
-
-	t := &Template{Lock: &sync.Mutex{}}
-	if err := t.Parse(view); err != nil {
-		return err
-	}
+func (ts *Templates) addTemplate(t *Template) {
 	defaultTemplates.Lock.Lock()
-	defer defaultTemplates.Lock.Unlock()
-
-	defaultTemplates.Cache[view] = t
-
-	return nil
+	defaultTemplates.Cache[t.Source.Identity] = t
+	defaultTemplates.Lock.Unlock()
 }
 
 func (ts *Templates) getTemplate(view string) *Template {
@@ -79,56 +73,103 @@ func (ts *Templates) getTemplate(view string) *Template {
 	return nil
 }
 
+func EmptyTemplate() *Template {
+	return &Template{
+		Lock:          &sync.Mutex{},
+		LastParseTime: time.Now(),
+	}
+}
+
 type Template struct {
-	Name          string
 	Tr            *Tree
 	Lock          *sync.Mutex
 	LastParseTime time.Time
+	Type          int
+	Source        *Source
 }
 
-func (t *Template) readFile(path string) (string, error) {
-	fs, err := ioutil.ReadFile(path)
-	if err != nil {
-		return "", errors.WithStack(err)
-	}
-	return string(fs), nil
-}
-
-func (t *Template) Parse(tpl string) (err error) {
+func (t *Template) parse(s *Source) (err error) {
+	t.Source = s
 	var stream *TokenStream
-	stream, err = NewLexer().Tokenize(tpl)
+	stream, err = NewLexer().Tokenize(t.Source)
 	if err == nil {
 		filter := &TokenFilter{Tr: &Tree{}}
 		t.Tr = filter.Filter(stream)
 	}
-
 	return errors.WithStack(err)
 }
 
-func (t *Template) Update() error {
-	t.Lock.Lock()
-	defer t.Lock.Unlock()
-	return t.Parse(t.Name)
+func (t *Template) ParseFile(path string) error {
+	t.Type = TPL_TYPE_FILE
+	return t.parse(NewSourceFile(path))
+}
+
+func (t *Template) ParseString(tpl string) error {
+	t.Type = TPL_TYPE_STRING
+	return t.parse(NewSource(tpl))
 }
 
 func (t *Template) Execute(data ...any) []byte {
 	return nil
 }
 
-func Render(w io.Writer, view string, data ...any) error {
+func (t *Template) update() error {
+	if t.Type == TPL_TYPE_FILE {
+		t.Lock.Lock()
+		defer t.Lock.Unlock()
+		return t.parse(NewSourceFile(t.Source.Identity))
+	}
+	return nil
+}
 
-	if !defaultTemplates.hasTemplate(view) {
-		if err := defaultTemplates.addTemplate(view); err != nil {
-			return errors.WithStack(err)
+func (t *Template) checkVersion() bool {
+	if t.Type == TPL_TYPE_FILE {
+		if info, err := os.Stat(t.Source.Identity); err == nil {
+			if info.ModTime().After(t.LastParseTime) {
+				return true
+			}
 		}
 	}
+	return false
+}
 
-	if t := defaultTemplates.getTemplate(view); t != nil {
+func RenderString(w io.Writer, view string, data ...any) error {
+	identity := abstract([]byte(view))
+
+	if !defaultTemplates.hasTemplate(identity) {
+		t := EmptyTemplate()
+		if err := t.ParseString(view); err != nil {
+			return errors.WithStack(err)
+		}
+		defaultTemplates.addTemplate(t)
+	}
+
+	if t := defaultTemplates.getTemplate(identity); t != nil {
 		if _, err := w.Write(t.Execute(data)); err != nil {
 			return errors.WithStack(err)
 		}
 		return nil
 	}
 
-	return errors.New(fmt.Sprintf("Template %s parsed error", view))
+	return errors.New(fmt.Sprintf("Template\n %s \nparsed error", view))
+}
+
+func Render(w io.Writer, viewPath string, data ...any) error {
+
+	if !defaultTemplates.hasTemplate(viewPath) {
+		t := EmptyTemplate()
+		if err := t.ParseFile(viewPath); err != nil {
+			return errors.WithStack(err)
+		}
+		defaultTemplates.addTemplate(t)
+	}
+
+	if t := defaultTemplates.getTemplate(viewPath); t != nil {
+		if _, err := w.Write(t.Execute(data)); err != nil {
+			return errors.WithStack(err)
+		}
+		return nil
+	}
+
+	return errors.New(fmt.Sprintf("Template %s parsed error", viewPath))
 }
