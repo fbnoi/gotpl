@@ -30,7 +30,7 @@ func NewUnexpectedEndOfFile(src *Source, line int, tok string) *UnexpectedEndOfF
 	return &UnexpectedEndOfFile{
 		Source:  src,
 		Line:    line,
-		Message: fmt.Sprintf("unexpected EOF at line: %s", line),
+		Message: fmt.Sprintf("unexpected EOF at line: %d", line),
 	}
 }
 
@@ -38,7 +38,7 @@ func NewUnexpectedToken(src *Source, line int, tok string) *UnexpectedToken {
 	return &UnexpectedToken{
 		Source:  src,
 		Line:    line,
-		Message: fmt.Sprintf("unexpected token at line: %s", line),
+		Message: fmt.Sprintf("unexpected token at line: %d", line),
 	}
 }
 
