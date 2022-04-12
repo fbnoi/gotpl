@@ -95,11 +95,15 @@ func (t *template) readFile(path string) (string, error) {
 	return string(fs), nil
 }
 
-func (t *template) parse(tpl string) error {
-	stream := Lexer().Tokenize(tpl)
-	filter := &TokenFilter{Tr: &Tree{}}
-	t.tr = filter.Filter(stream)
-	return nil
+func (t *template) parse(tpl string) (err error) {
+	var stream *TokenStream
+	stream, err = Lexer().Tokenize(tpl)
+	if err == nil {
+		filter := &TokenFilter{Tr: &Tree{}}
+		t.tr = filter.Filter(stream)
+	}
+
+	return errors.WithStack(err)
 }
 
 func (t *template) update() error {
