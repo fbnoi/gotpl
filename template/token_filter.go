@@ -120,7 +120,8 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 	} else {
 		panic("")
 	}
-	filter.push(efs)
+	// elseif do not in stack
+	filter.Cursor = efs
 }
 
 func (filter *TokenFilter) parseFor(token *Token) {

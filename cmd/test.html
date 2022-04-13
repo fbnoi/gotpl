@@ -16,7 +16,7 @@
     {% endif %}
 
     <div>
-        {% range key, value := list %}
+        {% for key = list; key < 2; key++ %}
             {{ key }}: {{ value }}
         {% endfor %}
     </div>
