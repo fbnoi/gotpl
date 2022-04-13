@@ -186,8 +186,16 @@ type (
 
 	//
 	BlockStmt struct {
-		Name string
-		Body *SectionStmt
+		Block Pos          // position of "include" keyword
+		Name  Ident        // name of block
+		Body  *SectionStmt // body of block
+	}
+
+	IncludeStmt struct {
+		Include Pos           // position of "include" keyword
+		Ident   BasicLit      // string of block name
+		With    Pos           // position of "with" keyword
+		Params  []*AssignStmt // position of "with" keyword
 	}
 )
 

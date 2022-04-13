@@ -10,7 +10,8 @@ var opPriority = map[string]int{
 }
 
 type Tree struct {
-	List []ASTNode
+	List   []ASTNode
+	Extend *Tree
 }
 
 type TokenFilter struct {
@@ -171,7 +172,8 @@ func (filter *TokenFilter) parseBlock(token *Token) {
 	if token.Type() != TYPE_NAME {
 		panic("")
 	}
-	bs := &BlockStmt{Name: token.Value()}
+	// Fixme: add attr assignment
+	bs := &BlockStmt{Name: Ident{NamePos: Pos(token.at)}}
 	filter.append(bs)
 	filter.push(bs)
 }
@@ -217,22 +219,30 @@ func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
 func (filter *TokenFilter) append(s Stmt) {
 	if filter.Cursor == nil {
 		filter.Tr.List = append(filter.Tr.List, s)
-	} else if st, ok := filter.Cursor.(*IfStmt); ok {
+		return
+	}
+	switch st := filter.Cursor.(type) {
+	case *IfStmt:
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
 		st.Body.List = append(st.Body.List, s)
-	} else if st, ok := filter.Cursor.(*RangeStmt); ok {
+	case *RangeStmt:
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
 		st.Body.List = append(st.Body.List, s)
-	} else if st, ok := filter.Cursor.(*ForStmt); ok {
+	case *ForStmt:
 		if st.Body == nil {
 			st.Body = &SectionStmt{}
 		}
 		st.Body.List = append(st.Body.List, s)
-	} else {
+	case *BlockStmt:
+		if st.Body == nil {
+			st.Body = &SectionStmt{}
+		}
+		st.Body.List = append(st.Body.List, s)
+	default:
 		panic("")
 	}
 }
