@@ -50,7 +50,7 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 			case "endrange":
 				filter.popRange()
 			case "block":
-				filter.parseBlock(stream.Next())
+				filter.parseBlock(token)
 			case "endblock":
 				filter.popBlock()
 			case "set":
@@ -169,11 +169,13 @@ func (filter *TokenFilter) parseRange(token *Token) {
 }
 
 func (filter *TokenFilter) parseBlock(token *Token) {
+	bs := &BlockStmt{
+		Block: Pos(token.at),
+		Name:  Ident{NamePos: Pos(token.at)},
+	}
 	if token.Type() != TYPE_NAME {
 		panic("")
 	}
-	// Fixme: add attr assignment
-	bs := &BlockStmt{Name: Ident{NamePos: Pos(token.at)}}
 	filter.append(bs)
 	filter.push(bs)
 }
@@ -221,30 +223,11 @@ func (filter *TokenFilter) append(s Stmt) {
 		filter.Tr.List = append(filter.Tr.List, s)
 		return
 	}
-	switch st := filter.Cursor.(type) {
-	case *IfStmt:
-		if st.Body == nil {
-			st.Body = &SectionStmt{}
-		}
-		st.Body.List = append(st.Body.List, s)
-	case *RangeStmt:
-		if st.Body == nil {
-			st.Body = &SectionStmt{}
-		}
-		st.Body.List = append(st.Body.List, s)
-	case *ForStmt:
-		if st.Body == nil {
-			st.Body = &SectionStmt{}
-		}
-		st.Body.List = append(st.Body.List, s)
-	case *BlockStmt:
-		if st.Body == nil {
-			st.Body = &SectionStmt{}
-		}
-		st.Body.List = append(st.Body.List, s)
-	default:
-		panic("")
+	if st, ok := filter.Cursor.(AppendAble); ok {
+		st.Append(s)
+		return
 	}
+	panic("")
 }
 
 func (filter *TokenFilter) popBlock() {

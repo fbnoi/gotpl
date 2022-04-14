@@ -31,6 +31,10 @@ type Text interface {
 	textNode()
 }
 
+type AppendAble interface {
+	Append(Stmt)
+}
+
 // ----------------------------------------------------------------------------
 // Expressions
 
@@ -195,7 +199,7 @@ type (
 		Include Pos           // position of "include" keyword
 		Ident   BasicLit      // string of block name
 		With    Pos           // position of "with" keyword
-		Params  []*AssignStmt // position of "with" keyword
+		Params  []*AssignStmt // parameters injected into block
 	}
 )
 
@@ -244,3 +248,31 @@ func (*IfStmt) stmtNode()      {}
 func (*ForStmt) stmtNode()     {}
 func (*RangeStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode()   {}
+
+// Append() ensures that only statement nodes can be
+// assigned to a Stmt.
+//
+func (s *IfStmt) Append(x Stmt) {
+	if s.Body == nil {
+		s.Body = &SectionStmt{}
+	}
+	s.Body.List = append(s.Body.List, x)
+}
+func (s *ForStmt) Append(x Stmt) {
+	if s.Body == nil {
+		s.Body = &SectionStmt{}
+	}
+	s.Body.List = append(s.Body.List, x)
+}
+func (s *RangeStmt) Append(x Stmt) {
+	if s.Body == nil {
+		s.Body = &SectionStmt{}
+	}
+	s.Body.List = append(s.Body.List, x)
+}
+func (s *BlockStmt) Append(x Stmt) {
+	if s.Body == nil {
+		s.Body = &SectionStmt{}
+	}
+	s.Body.List = append(s.Body.List, x)
+}
