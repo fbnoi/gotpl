@@ -6,6 +6,7 @@ import (
 )
 
 type TokenStream struct {
+	Source  *Source
 	tokens  []*Token
 	current int
 }

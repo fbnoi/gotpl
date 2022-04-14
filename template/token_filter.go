@@ -21,7 +21,7 @@ type TokenFilter struct {
 	Stack  []Stmt
 }
 
-func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
+func (filter *TokenFilter) Filter(stream *TokenStream) (*Tree, error) {
 	filter.Stream = stream
 	for !stream.IsEOF() {
 		token := stream.Next()
@@ -60,16 +60,16 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 			case "extend":
 				filter.parseExtend(token)
 			default:
-				panic("")
+				return nil, filter.unexpected(token)
 			}
 		}
 	}
-	return filter.Tr
+	return filter.Tr, nil
 }
 
-func (filter *TokenFilter) parseExtend(token *Token) {
+func (filter *TokenFilter) parseExtend(token *Token) error {
 	if filter.Tr.Extend != nil {
-		panic("")
+		return filter.unexpected(token)
 	}
 	es := &ExtendStmt{
 		Extend: Pos(token.at),
@@ -81,12 +81,12 @@ func (filter *TokenFilter) parseExtend(token *Token) {
 			Value:    token.Value(),
 		}
 		filter.Tr.Extend = es
-		return
+		return nil
 	}
-	panic("")
+	return filter.unexpected(token)
 }
 
-func (filter *TokenFilter) parseInclude(token *Token) {
+func (filter *TokenFilter) parseInclude(token *Token) error {
 	is := &IncludeStmt{
 		Include: Pos(token.at),
 	}
@@ -112,12 +112,12 @@ func (filter *TokenFilter) parseInclude(token *Token) {
 				}
 			}
 		} else if token.Type() != TYPE_BLOCK_END {
-			panic("")
+			return filter.unexpected(token)
 		}
 		filter.append(is)
-		return
+		return nil
 	}
-	panic("")
+	return filter.unexpected(token)
 }
 
 func (filter *TokenFilter) parseText(token *Token) {
@@ -158,17 +158,18 @@ func (filter *TokenFilter) parseIf(token *Token) {
 	filter.push(is)
 }
 
-func (filter *TokenFilter) parseElse(token *Token) {
+func (filter *TokenFilter) parseElse(token *Token) error {
 	es := &SectionStmt{}
 	if st, ok := filter.Cursor.(*IfStmt); ok {
 		st.Else = es
 	} else {
-		panic("")
+		return filter.unexpected(token)
 	}
 	filter.push(es)
+	return nil
 }
 
-func (filter *TokenFilter) parseElseIf(token *Token) {
+func (filter *TokenFilter) parseElseIf(token *Token) error {
 	efs := &IfStmt{}
 	var ts []*Token
 	for !filter.Stream.IsEOF() {
@@ -182,13 +183,14 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 	if st, ok := filter.Cursor.(*IfStmt); ok {
 		st.Else = efs
 	} else {
-		panic("")
+		return filter.unexpected(token)
 	}
 	// elseif do not in stack
 	filter.Cursor = efs
+	return nil
 }
 
-func (filter *TokenFilter) parseFor(token *Token) {
+func (filter *TokenFilter) parseFor(token *Token) error {
 	fs := &ForStmt{For: Pos(token.at)}
 	var tss [][]*Token
 	for !filter.Stream.IsEOF() && token.Type() != TYPE_BLOCK_END {
@@ -207,10 +209,11 @@ func (filter *TokenFilter) parseFor(token *Token) {
 	} else if len(tss) == 1 {
 		fs.Cond = parseExpr(tss[0])
 	} else {
-		panic("")
+		return filter.unexpected(token)
 	}
 	filter.append(fs)
 	filter.push(fs)
+	return nil
 }
 
 func (filter *TokenFilter) parseRange(token *Token) {
@@ -231,16 +234,17 @@ func (filter *TokenFilter) parseRange(token *Token) {
 	filter.push(rs)
 }
 
-func (filter *TokenFilter) parseBlock(token *Token) {
+func (filter *TokenFilter) parseBlock(token *Token) error {
 	bs := &BlockStmt{
 		Block: Pos(token.at),
 		Name:  Ident{NamePos: Pos(token.at)},
 	}
 	if token.Type() != TYPE_NAME {
-		panic("")
+		return filter.unexpected(token)
 	}
 	filter.append(bs)
 	filter.push(bs)
+	return nil
 }
 
 func (filter *TokenFilter) parseSet(token *Token) {
@@ -257,16 +261,16 @@ func (filter *TokenFilter) parseSet(token *Token) {
 	filter.append(ss)
 }
 
-func (filter *TokenFilter) append(s Stmt) {
+func (filter *TokenFilter) append(s Stmt) error {
 	if filter.Cursor == nil {
 		filter.Tr.List = append(filter.Tr.List, s)
-		return
+		return nil
 	}
 	if st, ok := filter.Cursor.(AppendAble); ok {
 		st.Append(s)
-		return
+		return nil
 	}
-	panic("")
+	return NewParseTemplateFaild(filter.Stream.Source, int(filter.Cursor.End().Position()))
 }
 
 func (filter *TokenFilter) popBlock() {
@@ -322,6 +326,10 @@ func (filter *TokenFilter) push(s Stmt) {
 		filter.Stack = append(filter.Stack, filter.Cursor)
 	}
 	filter.Cursor = s
+}
+
+func (filter *TokenFilter) unexpected(token *Token) error {
+	return NewUnexpectedToken(filter.Stream.Source, token.Line(), token.Value())
 }
 
 type ExprWraper struct {

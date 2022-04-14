@@ -89,17 +89,6 @@ type Template struct {
 	Source        *Source
 }
 
-func (t *Template) parse(s *Source) (err error) {
-	t.Source = s
-	var stream *TokenStream
-	stream, err = NewLexer().Tokenize(t.Source)
-	if err == nil {
-		filter := &TokenFilter{Tr: &Tree{}}
-		t.Tr = filter.Filter(stream)
-	}
-	return errors.WithStack(err)
-}
-
 func (t *Template) ParseFile(path string) error {
 	t.Type = TPL_TYPE_FILE
 	return t.parse(NewSourceFile(path))
@@ -113,6 +102,17 @@ func (t *Template) ParseString(tpl string) error {
 func (t *Template) Execute(data ...any) []byte {
 	ds, _ := json.MarshalIndent(t.Tr, "tpl", "····")
 	return ds
+}
+
+func (t *Template) parse(s *Source) (err error) {
+	t.Source = s
+	var stream *TokenStream
+	stream, err = NewLexer().Tokenize(t.Source)
+	if err == nil {
+		filter := &TokenFilter{Tr: &Tree{}}
+		t.Tr = filter.Filter(stream)
+	}
+	return errors.WithStack(err)
 }
 
 func (t *Template) update() error {
