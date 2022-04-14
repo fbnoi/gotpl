@@ -137,14 +137,6 @@ func NewIdent(name string) *Ident { return &Ident{NoPos, name} }
 // Statements
 
 type (
-	// TextStmt
-	TextStmt struct {
-		Text Expr // text content BasicLit
-	}
-
-	ValueStmt struct {
-		Tok Expr // assignment expr
-	}
 
 	// An AssignStmt node represents an assignment or
 	// a short variable declaration.
@@ -159,6 +151,20 @@ type (
 	// A SectionStmt node represents a braced statement list.
 	SectionStmt struct {
 		List []Stmt
+	}
+
+	// TextStmt
+	TextStmt struct {
+		Text Expr // text content BasicLit
+	}
+
+	ValueStmt struct {
+		Tok Expr // assignment expr
+	}
+
+	SetStmt struct {
+		Set    Pos
+		Assign *AssignStmt
 	}
 
 	// An IfStmt node represents an if statement.
@@ -201,6 +207,11 @@ type (
 		With    Pos           // position of "with" keyword
 		Params  []*AssignStmt // parameters injected into block
 	}
+
+	ExtendStmt struct {
+		Extend Pos
+		Ident  *BasicLit // string of block name
+	}
 )
 
 // Pos and End implementations for statement nodes.
@@ -218,6 +229,8 @@ func (s *ForStmt) Pos() Pos     { return s.For }
 func (s *RangeStmt) Pos() Pos   { return s.For }
 func (s *BlockStmt) Pos() Pos   { return s.Body.Pos() }
 func (s *IncludeStmt) Pos() Pos { return s.Include }
+func (s *ExtendStmt) Pos() Pos  { return s.Extend }
+func (s *SetStmt) Pos() Pos     { return s.Set }
 
 func (s *TextStmt) End() Pos   { return s.Text.End() }
 func (s *ValueStmt) End() Pos  { return s.Tok.End() }
@@ -243,6 +256,8 @@ func (s *IncludeStmt) End() Pos {
 	}
 	return s.Ident.End()
 }
+func (s *ExtendStmt) End() Pos { return s.Ident.End() }
+func (s *SetStmt) End() Pos    { return s.Assign.End() }
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -257,6 +272,8 @@ func (*ForStmt) stmtNode()     {}
 func (*RangeStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode()   {}
 func (*IncludeStmt) stmtNode() {}
+func (*ExtendStmt) stmtNode()  {}
+func (*SetStmt) stmtNode()     {}
 
 // Append() ensures that only statement nodes can be
 // assigned to a Stmt.

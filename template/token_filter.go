@@ -11,7 +11,7 @@ var opPriority = map[string]int{
 
 type Tree struct {
 	List   []ASTNode
-	Extend *Tree
+	Extend *ExtendStmt
 }
 
 type TokenFilter struct {
@@ -57,10 +57,33 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 				filter.parseSet(token)
 			case "include":
 				filter.parseInclude(token)
+			case "extend":
+				filter.parseExtend(token)
+			default:
+				panic("")
 			}
 		}
 	}
 	return filter.Tr
+}
+
+func (filter *TokenFilter) parseExtend(token *Token) {
+	if filter.Tr.Extend != nil {
+		panic("")
+	}
+	es := &ExtendStmt{
+		Extend: Pos(token.at),
+	}
+	if token := filter.Stream.Next(); token.Type() == TYPE_STRING {
+		es.Ident = &BasicLit{
+			ValuePos: Pos(token.at),
+			Kind:     TYPE_STRING,
+			Value:    token.Value(),
+		}
+		filter.Tr.Extend = es
+		return
+	}
+	panic("")
 }
 
 func (filter *TokenFilter) parseInclude(token *Token) {
@@ -91,8 +114,10 @@ func (filter *TokenFilter) parseInclude(token *Token) {
 		} else if token.Type() != TYPE_BLOCK_END {
 			panic("")
 		}
+		filter.append(is)
+		return
 	}
-	filter.append(is)
+	panic("")
 }
 
 func (filter *TokenFilter) parseText(token *Token) {
@@ -219,6 +244,7 @@ func (filter *TokenFilter) parseBlock(token *Token) {
 }
 
 func (filter *TokenFilter) parseSet(token *Token) {
+	ss := &SetStmt{Set: Pos(token.at)}
 	var ts []*Token
 	for !filter.Stream.IsEOF() {
 		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
@@ -227,7 +253,7 @@ func (filter *TokenFilter) parseSet(token *Token) {
 			break
 		}
 	}
-	ss := parseAssignStmt(ts)
+	ss.Assign = parseAssignStmt(ts)
 	filter.append(ss)
 }
 

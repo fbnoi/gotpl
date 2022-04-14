@@ -1,3 +1,5 @@
+
+{% extend "app/base.html.tpl" %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -17,6 +19,7 @@
 
     <div>
         {% for key = list; key < 2; key++ %}
+        {% set a = c %}
             {{ key }}: {{ value }}
         {% endfor %}
     </div>
