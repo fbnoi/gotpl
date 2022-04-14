@@ -197,7 +197,7 @@ type (
 
 	IncludeStmt struct {
 		Include Pos           // position of "include" keyword
-		Ident   BasicLit      // string of block name
+		Ident   *BasicLit     // string of block name
 		With    Pos           // position of "with" keyword
 		Params  []*AssignStmt // parameters injected into block
 	}
@@ -213,10 +213,12 @@ func (s *SectionStmt) Pos() Pos {
 	}
 	return NoPos
 }
-func (s *IfStmt) Pos() Pos     { return s.If }
-func (s *ForStmt) Pos() Pos    { return s.For }
-func (s *RangeStmt) Pos() Pos  { return s.For }
-func (s *BlockStmt) Pos() Pos  { return s.Body.Pos() }
+func (s *IfStmt) Pos() Pos      { return s.If }
+func (s *ForStmt) Pos() Pos     { return s.For }
+func (s *RangeStmt) Pos() Pos   { return s.For }
+func (s *BlockStmt) Pos() Pos   { return s.Body.Pos() }
+func (s *IncludeStmt) Pos() Pos { return s.Include }
+
 func (s *TextStmt) End() Pos   { return s.Text.End() }
 func (s *ValueStmt) End() Pos  { return s.Tok.End() }
 func (s *AssignStmt) End() Pos { return s.Rh.End() }
@@ -235,6 +237,12 @@ func (s *IfStmt) End() Pos {
 func (s *ForStmt) End() Pos   { return s.Body.End() }
 func (s *RangeStmt) End() Pos { return s.Body.End() }
 func (s *BlockStmt) End() Pos { return s.Body.End() }
+func (s *IncludeStmt) End() Pos {
+	if len(s.Params) > 0 {
+		return s.Params[len(s.Params)-1].Pos()
+	}
+	return s.Ident.End()
+}
 
 // stmtNode() ensures that only statement nodes can be
 // assigned to a Stmt.
@@ -248,6 +256,7 @@ func (*IfStmt) stmtNode()      {}
 func (*ForStmt) stmtNode()     {}
 func (*RangeStmt) stmtNode()   {}
 func (*BlockStmt) stmtNode()   {}
+func (*IncludeStmt) stmtNode() {}
 
 // Append() ensures that only statement nodes can be
 // assigned to a Stmt.

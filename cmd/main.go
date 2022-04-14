@@ -21,7 +21,7 @@ import (
 
 func main() {
 	sb := &strings.Builder{}
-	if err := template.Render(sb, "./test.html"); err != nil {
+	if err := template.Render(sb, "./cmd/test.html"); err != nil {
 		log.Println(err)
 	}
 	fmt.Println(sb.String())

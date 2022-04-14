@@ -21,6 +21,11 @@
         {% endfor %}
     </div>
     {% block test %}
+    {% 
+        include "/app/user/profile.html.tpl" with 
+        a=c;
+        b=d+e;
+    %}
     {% endblock %}
 </body>
 

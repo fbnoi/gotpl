@@ -2,6 +2,7 @@ package template
 
 import (
 	"bytes"
+	"fmt"
 )
 
 type TokenStream struct {
@@ -23,6 +24,14 @@ func (ts *TokenStream) Next() *Token {
 		panic("Unexpected end of template")
 	}
 	return ts.tokens[ts.current-1]
+}
+
+func (ts *TokenStream) Peek(n int) *Token {
+	if ts.current+n >= len(ts.tokens) {
+		et := ts.tokens[ts.current+n-1]
+		panic(fmt.Sprintf("Unexpected end of template at line %d", et.Line()))
+	}
+	return ts.tokens[ts.current+n]
 }
 
 func (ts *TokenStream) IsEOF() bool {

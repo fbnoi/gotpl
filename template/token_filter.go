@@ -55,15 +55,53 @@ func (filter *TokenFilter) Filter(stream *TokenStream) *Tree {
 				filter.popBlock()
 			case "set":
 				filter.parseSet(token)
+			case "include":
+				filter.parseInclude(token)
 			}
 		}
 	}
 	return filter.Tr
 }
 
+func (filter *TokenFilter) parseInclude(token *Token) {
+	is := &IncludeStmt{
+		Include: Pos(token.at),
+	}
+	if token := filter.Stream.Next(); token.Type() == TYPE_STRING {
+		is.Ident = &BasicLit{
+			ValuePos: Pos(token.at),
+			Kind:     TYPE_STRING,
+			Value:    token.Value(),
+		}
+
+		if token = filter.Stream.Next(); token.Value() == "with" {
+			for !filter.Stream.IsEOF() && token.Type() != TYPE_BLOCK_END {
+				var ts []*Token
+				token = filter.Stream.Next()
+				for token.Value() != ";" &&
+					token.Type() != TYPE_EOF &&
+					token.Type() != TYPE_BLOCK_END {
+					ts = append(ts, token)
+					token = filter.Stream.Next()
+				}
+				if as := parseAssignStmt(ts); as != nil {
+					is.Params = append(is.Params, as)
+				}
+			}
+		} else if token.Type() != TYPE_BLOCK_END {
+			panic("")
+		}
+	}
+	filter.append(is)
+}
+
 func (filter *TokenFilter) parseText(token *Token) {
-	ts := &TextStmt{&BasicLit{ValuePos: Pos(token.at), Kind: TYPE_STRING, Value: token.Value()}}
-	filter.append(ts)
+	t := &TextStmt{&BasicLit{
+		ValuePos: Pos(token.at),
+		Kind:     TYPE_STRING,
+		Value:    token.Value(),
+	}}
+	filter.append(t)
 }
 
 func (filter *TokenFilter) parseVar(token *Token) {
@@ -76,7 +114,7 @@ func (filter *TokenFilter) parseVar(token *Token) {
 			break
 		}
 	}
-	vs.Tok = filter.internelExpr(ts)
+	vs.Tok = parseExpr(ts)
 	filter.append(vs)
 }
 
@@ -90,7 +128,7 @@ func (filter *TokenFilter) parseIf(token *Token) {
 			break
 		}
 	}
-	is.Cond = filter.internelExpr(ts)
+	is.Cond = parseExpr(ts)
 	filter.append(is)
 	filter.push(is)
 }
@@ -115,7 +153,7 @@ func (filter *TokenFilter) parseElseIf(token *Token) {
 			break
 		}
 	}
-	efs.Cond = filter.internelExpr(ts)
+	efs.Cond = parseExpr(ts)
 	if st, ok := filter.Cursor.(*IfStmt); ok {
 		st.Else = efs
 	} else {
@@ -140,9 +178,9 @@ func (filter *TokenFilter) parseFor(token *Token) {
 		tss = append(tss, ts)
 	}
 	if len(tss) == 3 {
-		fs.Init, fs.Cond, fs.Post = filter.parseAssignStmt(tss[0]), filter.internelExpr(tss[1]), filter.parseAssignStmt(tss[2])
+		fs.Init, fs.Cond, fs.Post = parseAssignStmt(tss[0]), parseExpr(tss[1]), parseAssignStmt(tss[2])
 	} else if len(tss) == 1 {
-		fs.Cond = filter.internelExpr(tss[0])
+		fs.Cond = parseExpr(tss[0])
 	} else {
 		panic("")
 	}
@@ -189,33 +227,8 @@ func (filter *TokenFilter) parseSet(token *Token) {
 			break
 		}
 	}
-	ss := filter.parseAssignStmt(ts)
+	ss := parseAssignStmt(ts)
 	filter.append(ss)
-}
-
-func (filter *TokenFilter) parseAssignStmt(ts []*Token) *AssignStmt {
-	switch {
-	case len(ts) == 0:
-		return nil
-	case len(ts) >= 2:
-		token := ts[0]
-		if token.Type() != TYPE_NAME {
-			panic("")
-		}
-		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.at), Name: token.Value()}}
-		tok := ts[1]
-		ss.TokPos, ss.Tok = Pos(tok.at), tok.Value()
-		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
-			return ss
-		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
-			ss.Rh = filter.internelExpr(ts[2:])
-			return ss
-		} else {
-			ss.Rh = filter.internelExpr(ts[2:])
-			return ss
-		}
-	}
-	panic("")
 }
 
 func (filter *TokenFilter) append(s Stmt) {
@@ -283,11 +296,6 @@ func (filter *TokenFilter) push(s Stmt) {
 		filter.Stack = append(filter.Stack, filter.Cursor)
 	}
 	filter.Cursor = s
-}
-
-func (filter *TokenFilter) internelExpr(ts []*Token) Expr {
-
-	return (&ExprWraper{}).Wrap(ts)
 }
 
 type ExprWraper struct {
@@ -442,6 +450,35 @@ func waperBinary(op *Token, x1, x2 Expr) Expr {
 		}
 	}
 	panic(op)
+}
+
+func parseAssignStmt(ts []*Token) *AssignStmt {
+	switch {
+	case len(ts) == 0:
+		return nil
+	case len(ts) >= 2:
+		token := ts[0]
+		if token.Type() != TYPE_NAME {
+			panic("")
+		}
+		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.at), Name: token.Value()}}
+		tok := ts[1]
+		ss.TokPos, ss.Tok = Pos(tok.at), tok.Value()
+		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
+			return ss
+		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
+			ss.Rh = parseExpr(ts[2:])
+			return ss
+		} else {
+			ss.Rh = parseExpr(ts[2:])
+			return ss
+		}
+	}
+	panic("")
+}
+
+func parseExpr(ts []*Token) Expr {
+	return (&ExprWraper{}).Wrap(ts)
 }
 
 func comparePriority(t1, t2 *Token) bool {
