@@ -1,6 +1,7 @@
 package template
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -15,23 +16,23 @@ type Tree struct {
 }
 
 type TokenFilter struct {
+	*TokenStream
 	Tr     *Tree
 	Cursor Stmt
-	Stream *TokenStream
 	Stack  []Stmt
 }
 
 func (filter *TokenFilter) Filter(stream *TokenStream) (*Tree, error) {
-	filter.Stream = stream
+	filter.TokenStream = stream
 	for !stream.IsEOF() {
-		token := stream.Next()
+		token := filter.Next()
 		switch token.Type() {
 		case TYPE_TEXT:
 			filter.parseText(token)
 		case TYPE_VAR_START:
 			filter.parseVar(token)
 		case TYPE_BLOCK_START:
-			token := stream.Next()
+			token := filter.Next()
 			switch token.Value() {
 			case "if":
 				filter.parseIf(token)
@@ -74,7 +75,7 @@ func (filter *TokenFilter) parseExtend(token *Token) error {
 	es := &ExtendStmt{
 		Extend: Pos(token.at),
 	}
-	if token := filter.Stream.Next(); token.Type() == TYPE_STRING {
+	if token := filter.Next(); token.Type() == TYPE_STRING {
 		es.Ident = &BasicLit{
 			ValuePos: Pos(token.at),
 			Kind:     TYPE_STRING,
@@ -90,22 +91,22 @@ func (filter *TokenFilter) parseInclude(token *Token) error {
 	is := &IncludeStmt{
 		Include: Pos(token.at),
 	}
-	if token := filter.Stream.Next(); token.Type() == TYPE_STRING {
+	if token := filter.Next(); token.Type() == TYPE_STRING {
 		is.Ident = &BasicLit{
 			ValuePos: Pos(token.at),
 			Kind:     TYPE_STRING,
 			Value:    token.Value(),
 		}
 
-		if token = filter.Stream.Next(); token.Value() == "with" {
-			for !filter.Stream.IsEOF() && token.Type() != TYPE_BLOCK_END {
+		if token = filter.Next(); token.Value() == "with" {
+			for !filter.IsEOF() && token.Type() != TYPE_BLOCK_END {
 				var ts []*Token
-				token = filter.Stream.Next()
+				token = filter.Next()
 				for token.Value() != ";" &&
 					token.Type() != TYPE_EOF &&
 					token.Type() != TYPE_BLOCK_END {
 					ts = append(ts, token)
-					token = filter.Stream.Next()
+					token = filter.Next()
 				}
 				if as := parseAssignStmt(ts); as != nil {
 					is.Params = append(is.Params, as)
@@ -132,8 +133,8 @@ func (filter *TokenFilter) parseText(token *Token) {
 func (filter *TokenFilter) parseVar(token *Token) {
 	vs := &ValueStmt{}
 	var ts []*Token
-	for !filter.Stream.IsEOF() {
-		if token := filter.Stream.Next(); token.Type() != TYPE_VAR_END {
+	for !filter.IsEOF() {
+		if token := filter.Next(); token.Type() != TYPE_VAR_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -146,8 +147,8 @@ func (filter *TokenFilter) parseVar(token *Token) {
 func (filter *TokenFilter) parseIf(token *Token) {
 	is := &IfStmt{If: Pos(token.at)}
 	var ts []*Token
-	for !filter.Stream.IsEOF() {
-		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.IsEOF() {
+		if token := filter.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -172,8 +173,8 @@ func (filter *TokenFilter) parseElse(token *Token) error {
 func (filter *TokenFilter) parseElseIf(token *Token) error {
 	efs := &IfStmt{}
 	var ts []*Token
-	for !filter.Stream.IsEOF() {
-		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.IsEOF() {
+		if token := filter.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -193,14 +194,14 @@ func (filter *TokenFilter) parseElseIf(token *Token) error {
 func (filter *TokenFilter) parseFor(token *Token) error {
 	fs := &ForStmt{For: Pos(token.at)}
 	var tss [][]*Token
-	for !filter.Stream.IsEOF() && token.Type() != TYPE_BLOCK_END {
+	for !filter.IsEOF() && token.Type() != TYPE_BLOCK_END {
 		var ts []*Token
-		token = filter.Stream.Next()
+		token = filter.Next()
 		for token.Value() != ";" &&
 			token.Type() != TYPE_EOF &&
 			token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
-			token = filter.Stream.Next()
+			token = filter.Next()
 		}
 		tss = append(tss, ts)
 	}
@@ -218,11 +219,11 @@ func (filter *TokenFilter) parseFor(token *Token) error {
 
 func (filter *TokenFilter) parseRange(token *Token) {
 	rs := &RangeStmt{For: Pos(token.at)}
-	keyToken := filter.Stream.Next()
+	keyToken := filter.Next()
 	rs.Key = &Ident{NamePos: Pos(keyToken.at), Name: keyToken.Value()}
-	valueToken := filter.Stream.Next()
+	valueToken := filter.Next()
 	if valueToken.Value() == "," {
-		valueToken = filter.Stream.Next()
+		valueToken = filter.Next()
 	} else if valueToken.Value() == "=" {
 		valueToken = nil
 	}
@@ -250,8 +251,8 @@ func (filter *TokenFilter) parseBlock(token *Token) error {
 func (filter *TokenFilter) parseSet(token *Token) {
 	ss := &SetStmt{Set: Pos(token.at)}
 	var ts []*Token
-	for !filter.Stream.IsEOF() {
-		if token := filter.Stream.Next(); token.Type() != TYPE_BLOCK_END {
+	for !filter.IsEOF() {
+		if token := filter.Next(); token.Type() != TYPE_BLOCK_END {
 			ts = append(ts, token)
 		} else {
 			break
@@ -270,7 +271,7 @@ func (filter *TokenFilter) append(s Stmt) error {
 		st.Append(s)
 		return nil
 	}
-	return NewParseTemplateFaild(filter.Stream.Source, int(filter.Cursor.End().Position()))
+	return NewParseTemplateFaild(filter.Source, int(filter.Cursor.End().Position()))
 }
 
 func (filter *TokenFilter) popBlock() {
@@ -329,7 +330,7 @@ func (filter *TokenFilter) push(s Stmt) {
 }
 
 func (filter *TokenFilter) unexpected(token *Token) error {
-	return NewUnexpectedToken(filter.Stream.Source, token.Line(), token.Value())
+	return NewUnexpectedToken(filter.Source, token.Line(), token.Value())
 }
 
 type ExprWraper struct {
@@ -421,128 +422,124 @@ func (ew *ExprWraper) revert(op *Token) {
 	ew.pushExpr(waperBinary(op, ew.popExpr(), ew.popExpr()))
 }
 
-func (ew *ExprWraper) peekExpr() Expr {
+func (ew *ExprWraper) peekExpr() (Expr, error) {
 	if len(ew.eStack) == 0 {
-		panic("Resolve Expr failed, try to peek empty expression stack")
+		return nil, errors.New("peekExpr: Try to peek expression from an empty stack")
 	}
-	return ew.eStack[len(ew.eStack)-1]
+	return ew.eStack[len(ew.eStack)-1], nil
 }
 
 func (ew *ExprWraper) pushExpr(e Expr) {
 	ew.eStack = append(ew.eStack, e)
 }
 
-func (ew *ExprWraper) popExpr() Expr {
+func (ew *ExprWraper) popExpr() (Expr, error) {
 	if len(ew.eStack) == 0 {
-		panic("Resolve Expr failed, try to pop empty expression stack")
+		return nil, errors.New("popExpr: Try to pop expression from an empty stack")
 	}
 	t := ew.eStack[len(ew.eStack)-1]
 	ew.eStack = ew.eStack[:len(ew.eStack)-1]
-	return t
+	return t, nil
 }
 
-func (ew *ExprWraper) peekOp() *Token {
+func (ew *ExprWraper) peekOp() (*Token, error) {
 	if len(ew.opStack) == 0 {
-		panic("Resolve Expr failed, try to peek empty oprator stack")
+		return nil, errors.New("peekOp: Try to pop token from an empty stack")
 	}
-	return ew.opStack[len(ew.opStack)-1]
+	return ew.opStack[len(ew.opStack)-1], nil
 }
 
 func (ew *ExprWraper) pushOp(op *Token) {
 	ew.opStack = append(ew.opStack, op)
 }
 
-func (ew *ExprWraper) popOp() (t *Token) {
+func (ew *ExprWraper) popOp() (*Token, error) {
 	if len(ew.opStack) == 0 {
+		return nil, errors.New("peekOp: Try to pop token from an empty stack")
 		panic("Resolve Expr failed, try to pop empty oprator stack")
 	}
-	t = ew.opStack[len(ew.opStack)-1]
+	t := ew.opStack[len(ew.opStack)-1]
 	ew.opStack = ew.opStack[:len(ew.opStack)-1]
-	return
+	return t, nil
 }
 
-func waperBinary(op *Token, x1, x2 Expr) Expr {
+func waperBinary(op *Token, x1, x2 Expr) (Expr, error) {
 	switch op.Type() {
 	case TYPE_NAME:
 		fn := &Ident{NamePos: Pos(op.at), Name: op.Value()}
-		return &CallExpr{Fun: fn, Lparen: Pos(op.at + 1)}
+		return &CallExpr{Fun: fn, Lparen: Pos(op.at + 1)}, nil
 	case TYPE_OPERATOR:
 		switch op.Value() {
 		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==":
-			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.at), Op: op.Value()}, Y: x1}
+			return &BinaryExpr{X: x2, Op: OpLit{OpPos: Pos(op.at), Op: op.Value()}, Y: x1}, nil
 		}
 	case TYPE_PUNCTUATION:
 		switch op.Value() {
 		case "[":
-			return &IndexExpr{X: x1, Index: x2}
+			return &IndexExpr{X: x1, Index: x2}, nil
 		case ",":
 			if arg, ok := x1.(*ArgsExpr); ok {
 				arg.List = append(arg.List, x2)
-				return arg
+				return arg, nil
 			}
-			return &ArgsExpr{List: []Expr{x1, x2}}
+			return &ArgsExpr{List: []Expr{x1, x2}}, nil
 		}
+	default:
+
 	}
-	panic(op)
+	return nil, errors.New(fmt.Sprintf("waperBinary: unexpected token %s", op.Value()))
 }
 
-func parseAssignStmt(ts []*Token) *AssignStmt {
+func parseAssignStmt(ts []*Token) (*AssignStmt, error) {
 	switch {
 	case len(ts) == 0:
-		return nil
+		return nil, errors.New("parseAssignStmt: empty token list")
 	case len(ts) >= 2:
 		token := ts[0]
 		if token.Type() != TYPE_NAME {
-			panic("")
+			return nil, errors.New(fmt.Sprintf("parseAssignStmt: unexpected token %s", token.Value()))
 		}
 		ss := &AssignStmt{Lh: &Ident{NamePos: Pos(token.at), Name: token.Value()}}
 		tok := ts[1]
 		ss.TokPos, ss.Tok = Pos(tok.at), tok.Value()
 		if len(ts) == 2 && (tok.Value() == "++" || tok.Value() == "--") {
-			return ss
+			return ss, nil
 		} else if tok.Value() == "-=" || tok.Value() == "+=" || tok.Value() == "=" {
 			ss.Rh = parseExpr(ts[2:])
-			return ss
-		} else {
-			ss.Rh = parseExpr(ts[2:])
-			return ss
+			return ss, nil
 		}
 	}
-	panic("")
+	return nil, errors.New("parseAssignStmt: parse failed")
 }
 
 func parseExpr(ts []*Token) Expr {
 	return (&ExprWraper{}).Wrap(ts)
 }
 
-func comparePriority(t1, t2 *Token) bool {
+func comparePriority(t1, t2 *Token) (bool, error) {
 	if t1.Type() == TYPE_NAME {
-		return true
+		return true, nil
 	}
 	if t1.Value() == "(" || t1.Value() == "[" {
-		return true
+		return true, nil
 	}
 
 	if t2.Type() == TYPE_NAME {
-		return false
+		return false, nil
 	}
 
 	if t2.Value() == "(" || t2.Value() == "[" {
-		return false
+		return false, nil
 	}
 
 	if t2.Value() == "," {
-		return true
+		return true, nil
 	}
 
 	p1, ok1 := opPriority[t1.Value()]
 	p2, ok2 := opPriority[t2.Value()]
 	if ok1 && ok2 {
-		return p1 > p2
+		return p1 > p2, nil
 	}
-	if ok2 {
-		panic(t1)
-	}
-	panic(ok2)
-
+	return false, errors.New("comparePriority: undefined token")
 }
