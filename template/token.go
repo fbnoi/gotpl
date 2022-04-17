@@ -21,11 +21,10 @@ type Token struct {
 	value string
 	typ   int
 	line  int
-	at    int
 }
 
 func (t *Token) String() string {
-	return fmt.Sprintf("%s(%s)(%d:%d)", TypeToString(t.typ), t.value, t.line, t.at)
+	return fmt.Sprintf("%s(%s)(%d)", TypeToString(t.typ), t.value, t.line)
 }
 
 func (t *Token) Value() string {
@@ -38,10 +37,6 @@ func (t *Token) Type() int {
 
 func (t *Token) Line() int {
 	return t.line
-}
-
-func (t *Token) At() int {
-	return t.at
 }
 
 func TypeToString(typ int) (name string) {

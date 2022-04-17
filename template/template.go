@@ -110,7 +110,10 @@ func (t *Template) parse(s *Source) (err error) {
 	stream, err = NewLexer().Tokenize(t.Source)
 	if err == nil {
 		filter := &TokenFilter{Tr: &Tree{}}
-		t.Tr = filter.Filter(stream)
+		if t.Tr, err = filter.Filter(stream); err != nil {
+			return
+		}
+		return
 	}
 	return errors.WithStack(err)
 }

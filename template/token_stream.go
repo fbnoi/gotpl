@@ -19,6 +19,13 @@ func (ts *TokenStream) String() string {
 	return buf.String()
 }
 
+func (ts *TokenStream) Current() *Token {
+	if ts.current >= len(ts.tokens) {
+		panic("Unexpected end of template")
+	}
+	return ts.tokens[ts.current-1]
+}
+
 func (ts *TokenStream) Next() *Token {
 	ts.current++
 	if ts.current >= len(ts.tokens) {
