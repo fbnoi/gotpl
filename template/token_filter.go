@@ -1,13 +1,16 @@
 package template
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 var opPriority = map[string]int{
-	"==": 0, ">=": 0, "<=": 0, ">": 0, "<": 0, "!=": 0,
-	"+": 5, "-": 5, "%": 10, "*": 10, "/": 10, "[": 15,
+	"&&": 0, "||": 0, "==": 1, ">=": 1,
+	"<=": 1, ">": 1, "<": 1, "!=": 1,
+	"+": 5, "-": 5, "%": 10, "*": 10,
+	"/": 10, "[": 15,
 }
 
 type Tree struct {
@@ -360,10 +363,11 @@ func (filter *TokenFilter) popIf() (err error) {
 	return
 }
 
-func (filter *TokenFilter) pop() (s Stmt, err error) {
+func (filter *TokenFilter) pop() (s Stmt, e error) {
 	if len(filter.Stack) == 0 {
 		if filter.Cursor == nil {
-			return nil, errors.New("pop: Try to peek expression from an empty stack")
+			e = err("pop: Try to pop stmt from an empty stack")
+			return
 		}
 		return nil, nil
 	}
@@ -388,7 +392,7 @@ type ExprWraper struct {
 	opStack []*Token
 }
 
-func (ew *ExprWraper) Wrap(stream []*Token) (expr Expr, err error) {
+func (ew *ExprWraper) Wrap(stream []*Token) (expr Expr, e error) {
 	for i := 0; i < len(stream); i++ {
 		token := stream[i]
 		switch token.Type() {
@@ -407,34 +411,52 @@ func (ew *ExprWraper) Wrap(stream []*Token) (expr Expr, err error) {
 			var ok bool
 			switch token.Value() {
 			case "+", "-", "*", "/", "%", "==", ">=", "<=", ">", "<", "!=":
-
 				if tt := ew.peekOp(); tt == nil {
 					ew.pushOp(token)
-				} else if ok, err = comparePriority(token, tt); err != nil {
+				} else if ok, e = comparePriority(token, tt); e != nil {
 					return
 				} else if ok {
 					ew.pushOp(token)
 				} else {
-					if err = ew.revert(token); err != nil {
+					if e = ew.revert(token); e != nil {
 						return
 					}
 				}
-
+			case "&&", "||":
+				var op *Token
+				if op = ew.peekOp(); op == nil {
+					ew.pushOp(token)
+				} else {
+					for op.Value() != "&&" && op.Value() != "||" && op.Value() != "(" {
+						if op, e = ew.popOp(); e == nil {
+							if e = ew.revert(op); e != nil {
+								return
+							}
+						} else {
+							break
+						}
+					}
+					ew.pushOp(token)
+				}
 			default:
-				return nil, fmt.Errorf("Wrap: unexpected operator %s", token.Value())
+				e = err("Wrap: unexpected operator %s", token.Value())
+				return
 			}
 		case TYPE_PUNCTUATION:
-			var op *Token
+			var p *Token
 			switch token.Value() {
 			case ",":
-				if op = ew.peekOp(); op == nil {
-					return nil, fmt.Errorf("Wrap: unexpected punctuation %s", token.Value())
+				if p = ew.peekOp(); p == nil {
+					e = err("Wrap: unexpected punctuation %s", token.Value())
+					return
 				}
-				for op.Value() != "(" && op.Value() != "," {
-					if op, err = ew.popOp(); err != nil {
-						if err = ew.revert(op); err != nil {
+				for p.Value() != "(" && p.Value() != "," {
+					if p, e = ew.popOp(); e == nil {
+						if e = ew.revert(p); e != nil {
 							return
 						}
+					} else {
+						return nil, e
 					}
 				}
 				ew.pushOp(token)
@@ -442,38 +464,40 @@ func (ew *ExprWraper) Wrap(stream []*Token) (expr Expr, err error) {
 				ew.pushOp(token)
 			case "]":
 				for {
-					if op, err = ew.popOp(); err != nil {
+					if p, e = ew.popOp(); e != nil {
 						return
 					}
-					if op.Value() == "[" {
+					if p.Value() == "[" {
 						break
 					}
-					if err = ew.revert(op); err != nil {
+					if e = ew.revert(p); e != nil {
 						return
 					}
 				}
 			case ")":
 				for {
-					if op, err = ew.popOp(); err != nil {
+					if p, e = ew.popOp(); e != nil {
 						return
 					}
-					if op.Value() == "(" {
+					if p.Value() == "(" {
 						break
 					}
-					if err = ew.revert(op); err != nil {
+					if e = ew.revert(p); e != nil {
 						return
 					}
 				}
-				if op = ew.peekOp(); op == nil {
-					return nil, fmt.Errorf("Wrap: unexpected punctuation %s", token.Value())
-				} else if op.Type() == TYPE_NAME {
-					op, _ = ew.popOp()
-					if err = ew.revert(op); err != nil {
+				if p = ew.peekOp(); p == nil {
+					e = err("Wrap: unexpected punctuation %s", token.Value())
+					return
+				} else if p.Type() == TYPE_NAME {
+					p, _ = ew.popOp()
+					if e = ew.revert(p); e != nil {
 						return
 					}
 				}
 			default:
-				return nil, fmt.Errorf("Wrap: unexpected punctuation %s", token.Value())
+				e = err("Wrap: unexpected punctuation %s", token.Value())
+				return
 			}
 		}
 	}
@@ -481,14 +505,14 @@ func (ew *ExprWraper) Wrap(stream []*Token) (expr Expr, err error) {
 		op *Token
 	)
 	for len(ew.opStack) > 0 {
-		if op, err = ew.popOp(); err != nil {
+		if op, e = ew.popOp(); e != nil {
 			return
 		}
-		if err = ew.revert(op); err != nil {
+		if e = ew.revert(op); e != nil {
 			return
 		}
 	}
-	expr, err = ew.popExpr()
+	expr, e = ew.popExpr()
 	if len(ew.eStack) > 0 {
 		fmt.Println(ew.eStack)
 		panic(len(ew.eStack))
@@ -537,7 +561,7 @@ func (ew *ExprWraper) pushExpr(e Expr) {
 
 func (ew *ExprWraper) popExpr() (Expr, error) {
 	if len(ew.eStack) == 0 {
-		return nil, errors.New("popExpr: Try to pop expression from an empty stack")
+		return nil, err("popExpr: Try to pop expression from an empty stack")
 	}
 	t := ew.eStack[len(ew.eStack)-1]
 	ew.eStack = ew.eStack[:len(ew.eStack)-1]
@@ -557,7 +581,7 @@ func (ew *ExprWraper) pushOp(op *Token) {
 
 func (ew *ExprWraper) popOp() (*Token, error) {
 	if len(ew.opStack) == 0 {
-		return nil, errors.New("peekOp: Try to pop token from an empty stack")
+		return nil, err("peekOp: Try to pop token from an empty stack")
 	}
 	t := ew.opStack[len(ew.opStack)-1]
 	ew.opStack = ew.opStack[:len(ew.opStack)-1]
@@ -571,7 +595,7 @@ func waperBinary(op *Token, x1, x2 Expr) (Expr, error) {
 		return &CallExpr{Fun: fn}, nil
 	case TYPE_OPERATOR:
 		switch op.Value() {
-		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==":
+		case "+", "-", "*", "/", "%", ">", "<", ">=", "<=", "!=", "==", "&&", "||":
 			return &BinaryExpr{X: x2, Op: OpLit{op.Value()}, Y: x1}, nil
 		}
 	case TYPE_PUNCTUATION:
@@ -585,20 +609,18 @@ func waperBinary(op *Token, x1, x2 Expr) (Expr, error) {
 			}
 			return &ArgsExpr{List: []Expr{x1, x2}}, nil
 		}
-	default:
-
 	}
-	return nil, fmt.Errorf("waperBinary: unexpected token %s", op.Value())
+	return nil, err("waperBinary: unexpected token %s", op.Value())
 }
 
 func parseAssignStmt(ts []*Token) (*AssignStmt, error) {
 	switch {
 	case len(ts) == 0:
-		return nil, errors.New("parseAssignStmt: empty token list")
+		return nil, err("parseAssignStmt: empty token list")
 	case len(ts) >= 2:
 		token := ts[0]
 		if token.Type() != TYPE_NAME {
-			return nil, fmt.Errorf("parseAssignStmt: unexpected token %s", token.Value())
+			return nil, err("parseAssignStmt: unexpected token %s", token.Value())
 		}
 		ss := &AssignStmt{Lh: &Ident{token.Value()}}
 		tok := ts[1]
@@ -614,7 +636,7 @@ func parseAssignStmt(ts []*Token) (*AssignStmt, error) {
 			}
 		}
 	}
-	return nil, errors.New("parseAssignStmt: parse failed")
+	return nil, err("parseAssignStmt: parse failed")
 }
 
 func parseExpr(ts []*Token) (Expr, error) {
@@ -646,5 +668,12 @@ func comparePriority(t1, t2 *Token) (bool, error) {
 	if ok1 && ok2 {
 		return p1 > p2, nil
 	}
-	return false, errors.New("comparePriority: undefined token")
+	return false, err("comparePriority: undefined token")
+}
+
+func err(format string, data ...any) error {
+	if len(data) == 0 {
+		return errors.New(format)
+	}
+	return errors.WithStack(fmt.Errorf(format, data...))
 }
